@@ -1,0 +1,5 @@
+{
+  "name": "CampusHub",
+  "description": "A Reddit-style community platform for college students featuring a robust student utility toolbox and gossip feeds.",
+  "requestFramePermissions": []
+}
