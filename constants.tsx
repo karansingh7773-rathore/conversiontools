@@ -273,6 +273,17 @@ export const TOOLS: Tool[] = [
 
     // --- Video Tools (FFmpeg) ---
     {
+        id: 'video-editor',
+        title: 'Video Editor',
+        description: 'All-in-one editor: trim, rotate, adjust, speed, audio - with live preview & timeline.',
+        icon: Video,
+        color: 'text-teal-600',
+        bgColor: 'bg-gradient-to-br from-teal-100 to-cyan-100 dark:from-teal-900/30 dark:to-cyan-900/30',
+        badge: 'NEW',
+        ctaText: 'Open Editor',
+        category: 'Video Tools'
+    },
+    {
         id: 'vid-compress',
         title: 'Video Compressor',
         description: 'Squash large video files for upload.',

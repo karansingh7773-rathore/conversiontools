@@ -18,7 +18,12 @@ const Toolbox: React.FC = () => {
     }, [categoryParam]);
 
     const handleToolClick = (id: string) => {
-        navigate(`/tool/${id}`);
+        // Special case for video editor - goes to dedicated route
+        if (id === 'video-editor') {
+            navigate('/video-editor');
+        } else {
+            navigate(`/tool/${id}`);
+        }
     };
 
     const handleCategoryClick = (cat: string) => {

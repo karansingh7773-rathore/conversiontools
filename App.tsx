@@ -5,6 +5,7 @@ import SidebarLeft from './components/SidebarLeft';
 import SidebarRight from './components/SidebarRight';
 import Toolbox from './components/Toolbox';
 import ToolDetail from './components/ToolDetail';
+import VideoEditor from './components/VideoEditor';
 
 const App: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -48,6 +49,7 @@ const App: React.FC = () => {
                             <Route path="/" element={<Navigate to="/tools" replace />} />
                             <Route path="/tools" element={<Toolbox />} />
                             <Route path="/tool/:id" element={<ToolDetail />} />
+                            <Route path="/video-editor" element={<VideoEditor />} />
                             <Route path="*" element={<Navigate to="/tools" replace />} />
                         </Routes>
                     </main>
