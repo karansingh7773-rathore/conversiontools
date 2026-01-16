@@ -329,14 +329,29 @@ export async function compressImage(
 export async function compressVideo(
     file: File,
     options: {
+        compressionMethod?: string;
         compressionLevel?: 'low' | 'medium' | 'high';
+        targetSizeMB?: number;
+        targetPercentage?: number;
+        targetQuality?: number;
+        targetResolution?: string;
+        targetBitrate?: string;
         muteAudio?: boolean;
     } = {}
 ): Promise<ApiResponse> {
-    return uploadFiles('/api/video/compress', [file], {
-        compression_level: options.compressionLevel || 'medium',
+    const formData: Record<string, string | number | boolean> = {
+        compression_method: options.compressionMethod || 'preset',
         mute_audio: options.muteAudio ?? false
-    }, 'file');
+    };
+    
+    if (options.compressionLevel) formData.compression_level = options.compressionLevel;
+    if (options.targetSizeMB) formData.target_size_mb = options.targetSizeMB;
+    if (options.targetPercentage) formData.target_percentage = options.targetPercentage;
+    if (options.targetQuality) formData.target_quality = options.targetQuality;
+    if (options.targetResolution) formData.target_resolution = options.targetResolution;
+    if (options.targetBitrate) formData.target_bitrate = options.targetBitrate;
+    
+    return uploadFiles('/api/video/compress', [file], formData, 'file');
 }
 
 export async function trimVideo(

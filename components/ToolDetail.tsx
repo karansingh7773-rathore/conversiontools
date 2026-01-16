@@ -34,6 +34,8 @@ const ToolDetail: React.FC = () => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [processingProgress, setProcessingProgress] = useState(0);
+    const [processingMessage, setProcessingMessage] = useState('');
     
     // Mock Pages for Rotate/Organize (will be populated from uploaded PDF)
     const [mockPages, setMockPages] = useState<PageInfo[]>(
@@ -84,6 +86,10 @@ const ToolDetail: React.FC = () => {
     
     // Video States
     const [compressionLevel, setCompressionLevel] = useState<'low' | 'medium' | 'high'>('medium');
+    const [compressionMethod, setCompressionMethod] = useState<'preset' | 'target_size' | 'target_percentage' | 'target_quality' | 'target_resolution' | 'target_bitrate'>('preset');
+    const [targetSizeMB, setTargetSizeMB] = useState(50);
+    const [targetPercentage, setTargetPercentage] = useState(50);
+    const [targetQuality, setTargetQuality] = useState(23); // CRF
     const [muteAudio, setMuteAudio] = useState(false);
     const [trimStart, setTrimStart] = useState("00:00:00");
     const [trimEnd, setTrimEnd] = useState("00:00:30");
@@ -335,10 +341,18 @@ const ToolDetail: React.FC = () => {
                 // Video Tools
                 case 'vid-compress':
                     if (files.length === 0) throw new Error('Please upload a video');
+                    setProcessingProgress(10);
+                    setProcessingMessage(`Compressing ${files[0].name}...`);
                     result = await api.compressVideo(files[0], {
+                        compressionMethod,
                         compressionLevel,
+                        targetSizeMB,
+                        targetPercentage,
+                        targetQuality,
+                        targetResolution: videoPreset,
                         muteAudio
                     });
+                    setProcessingProgress(100);
                     break;
 
                 case 'vid-trim':
@@ -1005,29 +1019,144 @@ const ToolDetail: React.FC = () => {
 
     const renderVideoCompress = () => (
         <div className="space-y-6">
+            {/* Compression Method Selector */}
             <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Compression Level</label>
-                <p className="text-xs text-gray-400">Optimized with ultrafast preset - 10x faster!</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {(['low', 'medium', 'high'] as const).map(level => (
-                        <button
-                            key={level}
-                            onClick={() => setCompressionLevel(level)}
-                            className={`px-4 py-3 rounded-md border text-center transition-all ${
-                                compressionLevel === level 
-                                ? 'border-primary bg-red-50 dark:bg-red-900/20 text-primary font-bold shadow-sm' 
-                                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-300'
-                            }`}
-                        >
-                            <span className="capitalize block">{level}</span>
-                            <span className="text-[10px] text-gray-400 font-normal">
-                                {level === 'low' ? 'Fast, bigger file' : level === 'medium' ? 'Balanced' : 'Smaller file'}
-                            </span>
-                        </button>
-                    ))}
-                </div>
+                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Compression Method</label>
+                <select 
+                    value={compressionMethod} 
+                    onChange={(e) => setCompressionMethod(e.target.value as any)}
+                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white"
+                >
+                    <option value="preset">Preset Quality Levels</option>
+                    <option value="target_size">Target a file size (MB)</option>
+                    <option value="target_percentage">Target a file size (Percentage)</option>
+                    <option value="target_quality">Target a video quality (CRF)</option>
+                    <option value="target_resolution">Target a video resolution</option>
+                    <option value="target_bitrate">Target a max bitrate</option>
+                </select>
             </div>
 
+            {/* Preset Method */}
+            {compressionMethod === 'preset' && (
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Quality Level</label>
+                    <p className="text-xs text-gray-400">⚡ Optimized with ultrafast preset - 10x faster!</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {(['low', 'medium', 'high'] as const).map(level => (
+                            <button
+                                key={level}
+                                onClick={() => setCompressionLevel(level)}
+                                className={`px-4 py-3 rounded-md border text-center transition-all ${
+                                    compressionLevel === level 
+                                    ? 'border-primary bg-red-50 dark:bg-red-900/20 text-primary font-bold shadow-sm' 
+                                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                                }`}
+                            >
+                                <span className="capitalize block">{level}</span>
+                                <span className="text-[10px] text-gray-400 font-normal">
+                                    {level === 'low' ? 'Fast, bigger file' : level === 'medium' ? 'Balanced' : 'Smaller file'}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Target Size (MB) */}
+            {compressionMethod === 'target_size' && (
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Target File Size (MB)</label>
+                    <input 
+                        type="number" 
+                        value={targetSizeMB} 
+                        onChange={(e) => setTargetSizeMB(parseInt(e.target.value) || 50)}
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2"
+                    />
+                    <p className="text-xs text-gray-500">Enter desired file size in megabytes</p>
+                </div>
+            )}
+
+            {/* Target Percentage */}
+            {compressionMethod === 'target_percentage' && (
+                <div className="space-y-4">
+                    <div className="flex justify-between">
+                        <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Target Size (% of original)</label>
+                        <span className="text-xs font-bold text-primary">{targetPercentage}%</span>
+                    </div>
+                    <input 
+                        type="range" 
+                        min="10" 
+                        max="100" 
+                        value={targetPercentage} 
+                        onChange={(e) => setTargetPercentage(parseInt(e.target.value))}
+                        className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <p className="text-xs text-gray-500">E.g., 50% = 100MB file becomes 50MB</p>
+                </div>
+            )}
+
+            {/* Target Quality (CRF) */}
+            {compressionMethod === 'target_quality' && (
+                <div className="space-y-4">
+                    <div className="flex justify-between">
+                        <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Quality (CRF)</label>
+                        <span className="text-xs font-bold text-primary">{targetQuality}</span>
+                    </div>
+                    <input 
+                        type="range" 
+                        min="18" 
+                        max="32" 
+                        value={targetQuality} 
+                        onChange={(e) => setTargetQuality(parseInt(e.target.value))}
+                        className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-xs text-gray-400">
+                        <span>18 (Best quality)</span>
+                        <span>23 (Balanced)</span>
+                        <span>32 (Most compression)</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Target Resolution */}
+            {compressionMethod === 'target_resolution' && (
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Target Resolution</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {['1080p', '720p', '480p', '360p'].map(res => (
+                            <button
+                                key={res}
+                                onClick={() => setVideoPreset(res as any)}
+                                className={`p-3 rounded-lg border text-center transition-all ${
+                                    videoPreset === res
+                                    ? 'border-primary bg-teal-50 dark:bg-teal-900/20 text-primary font-bold'
+                                    : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                                }`}
+                            >
+                                {res}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Target Bitrate */}
+            {compressionMethod === 'target_bitrate' && (
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Max Bitrate</label>
+                    <select 
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2"
+                    >
+                        <option value="500k">500 kbps (Low)</option>
+                        <option value="1M">1 Mbps (Medium)</option>
+                        <option value="2M">2 Mbps (Good)</option>
+                        <option value="5M">5 Mbps (High)</option>
+                        <option value="10M">10 Mbps (Very High)</option>
+                    </select>
+                </div>
+            )}
+
+            {/* Mute Audio Option */}
             <div className="flex items-center gap-2">
                 <input 
                     type="checkbox" 
@@ -1617,6 +1746,22 @@ const ToolDetail: React.FC = () => {
                         <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm rounded-md flex items-center gap-2">
                             <CheckCircle className="w-4 h-4" />
                             {success}
+                        </div>
+                    )}
+
+                    {/* Processing Progress Bar */}
+                    {isProcessing && (
+                        <div className="mb-4 space-y-2 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="font-medium text-blue-700 dark:text-blue-300">{processingMessage || 'Processing...'}</span>
+                                <span className="text-blue-600 dark:text-blue-400 font-bold">{processingProgress}%</span>
+                            </div>
+                            <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2 overflow-hidden">
+                                <div 
+                                    className="h-full bg-blue-600 dark:bg-blue-500 transition-all duration-300 ease-out"
+                                    style={{ width: `${processingProgress}%` }}
+                                />
+                            </div>
                         </div>
                     )}
 
