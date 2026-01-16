@@ -4,13 +4,26 @@ import {
     ArrowLeft, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
     RotateCcw, RotateCw, FlipHorizontal, FlipVertical, Download, Loader2,
     Scissors, Plus, Minus, AlertCircle, CheckCircle, Maximize, Square,
-    Crop, Music, Zap, Clock, Settings, Upload, X, ChevronLeft, ChevronRight
+    Crop, Music, Zap, Clock, Settings, Upload, X, ChevronLeft, ChevronRight,
+    Trash2, Sun, Layers, Copy
 } from 'lucide-react';
 import * as api from '../services/api';
 
 interface TrimRange {
     start: number;
     end: number;
+}
+
+interface SplitPoint {
+    id: string;
+    time: number;
+}
+
+interface Segment {
+    id: string;
+    start: number;
+    end: number;
+    deleted: boolean;
 }
 
 const VideoEditor: React.FC = () => {
@@ -51,9 +64,14 @@ const VideoEditor: React.FC = () => {
     // Speed State
     const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
-    // Time/Trim State
+    // Time/Trim State - Enhanced with split points
     const [trimRange, setTrimRange] = useState<TrimRange>({ start: 0, end: 0 });
     const [isTrimming, setIsTrimming] = useState(false);
+    const [splitPoints, setSplitPoints] = useState<SplitPoint[]>([]);
+    const [segments, setSegments] = useState<Segment[]>([]);
+    const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
+    const [hoverTime, setHoverTime] = useState<number | null>(null);
+    const [hoverPosition, setHoverPosition] = useState<number | null>(null);
 
     // Export State
     const [isExporting, setIsExporting] = useState(false);
@@ -90,16 +108,97 @@ const VideoEditor: React.FC = () => {
             setIsMuted(false);
             setPlaybackSpeed(1);
             setThumbnails([]);
+            setSplitPoints([]);
+            setSegments([]);
+            setSelectedSegmentId(null);
         }
     };
 
     // Handle video metadata loaded
     const handleLoadedMetadata = () => {
         if (videoRef.current) {
-            setDuration(videoRef.current.duration);
-            setTrimRange({ start: 0, end: videoRef.current.duration });
+            const dur = videoRef.current.duration;
+            setDuration(dur);
+            setTrimRange({ start: 0, end: dur });
+            // Initialize with one segment covering entire video
+            setSegments([{ id: 'seg-0', start: 0, end: dur, deleted: false }]);
             generateThumbnails();
         }
+    };
+
+    // Rebuild segments from split points
+    const rebuildSegments = (points: SplitPoint[], videoDuration: number) => {
+        const sortedTimes = [0, ...points.map(p => p.time).sort((a, b) => a - b), videoDuration];
+        const newSegments: Segment[] = [];
+        
+        for (let i = 0; i < sortedTimes.length - 1; i++) {
+            const existingSegment = segments.find(s => 
+                Math.abs(s.start - sortedTimes[i]) < 0.1 && Math.abs(s.end - sortedTimes[i + 1]) < 0.1
+            );
+            newSegments.push({
+                id: `seg-${i}`,
+                start: sortedTimes[i],
+                end: sortedTimes[i + 1],
+                deleted: existingSegment?.deleted || false
+            });
+        }
+        
+        setSegments(newSegments);
+    };
+
+    // Add split at current position
+    const addSplit = () => {
+        if (!duration) return;
+        
+        // Don't add split at the very start or end
+        if (currentTime < 0.1 || currentTime > duration - 0.1) return;
+        
+        // Don't add if there's already a split nearby
+        const nearbyExists = splitPoints.some(p => Math.abs(p.time - currentTime) < 0.5);
+        if (nearbyExists) return;
+        
+        const newPoint: SplitPoint = { id: crypto.randomUUID(), time: currentTime };
+        const newPoints = [...splitPoints, newPoint];
+        setSplitPoints(newPoints);
+        rebuildSegments(newPoints, duration);
+    };
+
+    // Delete selected segment
+    const deleteSelectedSegment = () => {
+        if (!selectedSegmentId) return;
+        
+        setSegments(prev => prev.map(seg => 
+            seg.id === selectedSegmentId ? { ...seg, deleted: true } : seg
+        ));
+        setSelectedSegmentId(null);
+    };
+
+    // Restore a deleted segment
+    const restoreSegment = (segmentId: string) => {
+        setSegments(prev => prev.map(seg => 
+            seg.id === segmentId ? { ...seg, deleted: false } : seg
+        ));
+    };
+
+    // Handle timeline hover for showing line indicator
+    const handleTimelineMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!timelineRef.current || !duration) return;
+        const rect = timelineRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const percentage = Math.max(0, Math.min(1, x / rect.width));
+        setHoverPosition(x);
+        setHoverTime(percentage * duration);
+    };
+
+    const handleTimelineMouseLeave = () => {
+        setHoverPosition(null);
+        setHoverTime(null);
+    };
+
+    // Click on segment to select it
+    const handleSegmentClick = (segmentId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSelectedSegmentId(prev => prev === segmentId ? null : segmentId);
     };
 
     // Generate thumbnails for timeline
@@ -112,9 +211,9 @@ const VideoEditor: React.FC = () => {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const thumbCount = 30; // Number of thumbnails
+        const thumbCount = 40; // More thumbnails for wider timeline
         const thumbWidth = 80;
-        const thumbHeight = 45;
+        const thumbHeight = 50;
         canvas.width = thumbWidth;
         canvas.height = thumbHeight;
 
@@ -351,6 +450,43 @@ const VideoEditor: React.FC = () => {
         const secs = Math.floor(seconds % 60);
         return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
+
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Don't trigger if user is typing in an input
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+            
+            switch (e.key.toLowerCase()) {
+                case 's':
+                    e.preventDefault();
+                    addSplit();
+                    break;
+                case 'delete':
+                case 'backspace':
+                    if (selectedSegmentId) {
+                        e.preventDefault();
+                        deleteSelectedSegment();
+                    }
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    togglePlay();
+                    break;
+                case 'arrowleft':
+                    e.preventDefault();
+                    skip(-5);
+                    break;
+                case 'arrowright':
+                    e.preventDefault();
+                    skip(5);
+                    break;
+            }
+        };
+        
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [currentTime, selectedSegmentId, duration, splitPoints]);
 
     // Cleanup URL on unmount
     useEffect(() => {
@@ -799,10 +935,10 @@ const VideoEditor: React.FC = () => {
                 </div>
             </div>
 
-            {/* Main Editor Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                {/* Left Panel - Controls */}
-                <div className="lg:col-span-1 bg-white dark:bg-card-dark rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg overflow-hidden">
+            {/* Main Editor Layout - Wider left panel */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                {/* Left Panel - Controls (wider) */}
+                <div className="lg:col-span-2 bg-white dark:bg-card-dark rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg overflow-hidden">
                     {/* Tabs */}
                     <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
                         {[
@@ -859,11 +995,63 @@ const VideoEditor: React.FC = () => {
 
                     {/* Playback Controls */}
                     <div className="bg-white dark:bg-card-dark rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg p-4">
+                        {/* Timeline Toolbar */}
+                        <div className="flex items-center gap-1 mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+                            <button
+                                onClick={addSplit}
+                                className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-700 dark:text-gray-300"
+                                title="Split at playhead (S)"
+                            >
+                                <Scissors className="w-4 h-4" />
+                                <span className="hidden sm:inline">Split</span>
+                            </button>
+                            <button
+                                onClick={deleteSelectedSegment}
+                                disabled={!selectedSegmentId}
+                                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                                    selectedSegmentId
+                                    ? 'hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400'
+                                    : 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                                }`}
+                                title="Delete selected segment (Del)"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                <span className="hidden sm:inline">Delete</span>
+                            </button>
+                            <div className="flex-1" />
+                            {/* Time markers */}
+                            <div className="text-xs font-mono text-gray-500 dark:text-gray-400 flex gap-4">
+                                {hoverTime !== null && (
+                                    <span className="text-primary font-bold">
+                                        Hover: {formatTime(hoverTime)}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Time Ruler */}
+                        <div className="relative h-6 mb-1 text-xs text-gray-500 dark:text-gray-400 font-mono">
+                            {duration > 0 && Array.from({ length: Math.min(13, Math.ceil(duration / 5) + 1) }).map((_, i) => {
+                                const time = i * (duration / 12);
+                                return (
+                                    <span 
+                                        key={i} 
+                                        className="absolute transform -translate-x-1/2"
+                                        style={{ left: `${(time / duration) * 100}%` }}
+                                    >
+                                        {formatTime(time)}
+                                    </span>
+                                );
+                            })}
+                        </div>
+
                         {/* Timeline */}
                         <div 
                             ref={timelineRef}
-                            className="relative h-16 bg-gray-900 rounded-lg overflow-hidden cursor-pointer mb-4"
+                            className="relative h-20 bg-gray-900 rounded-lg overflow-hidden cursor-pointer mb-4"
                             onClick={handleTimelineClick}
+                            onMouseMove={handleTimelineMouseMove}
+                            onMouseLeave={handleTimelineMouseLeave}
                         >
                             {/* Thumbnails */}
                             <div className="flex h-full">
@@ -878,39 +1066,61 @@ const VideoEditor: React.FC = () => {
                                 ))}
                             </div>
 
-                            {/* Trim Range Overlay */}
-                            {isTrimming && (
-                                <>
-                                    <div 
-                                        className="absolute top-0 bottom-0 bg-black/60"
-                                        style={{ 
-                                            left: 0, 
-                                            width: `${(trimRange.start / duration) * 100}%` 
-                                        }}
-                                    />
-                                    <div 
-                                        className="absolute top-0 bottom-0 bg-black/60"
-                                        style={{ 
-                                            left: `${(trimRange.end / duration) * 100}%`,
-                                            right: 0
-                                        }}
-                                    />
-                                    <div 
-                                        className="absolute top-0 bottom-0 border-2 border-yellow-400"
-                                        style={{
-                                            left: `${(trimRange.start / duration) * 100}%`,
-                                            width: `${((trimRange.end - trimRange.start) / duration) * 100}%`
-                                        }}
-                                    />
-                                </>
+                            {/* Segments overlay with selection */}
+                            {segments.map((segment) => (
+                                <div
+                                    key={segment.id}
+                                    onClick={(e) => handleSegmentClick(segment.id, e)}
+                                    className={`absolute top-0 bottom-0 transition-all cursor-pointer ${
+                                        segment.deleted 
+                                            ? 'bg-black/70' 
+                                            : selectedSegmentId === segment.id 
+                                                ? 'ring-2 ring-inset ring-primary bg-primary/20' 
+                                                : 'hover:bg-white/10'
+                                    }`}
+                                    style={{
+                                        left: `${(segment.start / duration) * 100}%`,
+                                        width: `${((segment.end - segment.start) / duration) * 100}%`
+                                    }}
+                                >
+                                    {segment.deleted && (
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); restoreSegment(segment.id); }}
+                                                className="px-2 py-1 bg-white/90 text-gray-900 text-xs font-bold rounded hover:bg-white"
+                                            >
+                                                Restore
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+
+                            {/* Split point lines */}
+                            {splitPoints.map((point) => (
+                                <div
+                                    key={point.id}
+                                    className="absolute top-0 bottom-0 w-1 bg-primary z-10"
+                                    style={{ left: `${(point.time / duration) * 100}%`, transform: 'translateX(-50%)' }}
+                                />
+                            ))}
+
+                            {/* Hover indicator line */}
+                            {hoverPosition !== null && (
+                                <div 
+                                    className="absolute top-0 bottom-0 w-0.5 bg-white/80 pointer-events-none z-20"
+                                    style={{ left: hoverPosition }}
+                                >
+                                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-white rounded-full" />
+                                </div>
                             )}
 
                             {/* Playhead */}
                             <div 
-                                className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg"
-                                style={{ left: `${(currentTime / duration) * 100}%` }}
+                                className="absolute top-0 bottom-0 w-1 bg-primary z-30 shadow-lg"
+                                style={{ left: `${(currentTime / duration) * 100}%`, transform: 'translateX(-50%)' }}
                             >
-                                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-md" />
+                                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-primary rounded-full shadow-md border-2 border-white" />
                             </div>
                         </div>
 
