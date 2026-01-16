@@ -72,6 +72,9 @@ const VideoEditor: React.FC = () => {
     const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
     const [hoverTime, setHoverTime] = useState<number | null>(null);
     const [hoverPosition, setHoverPosition] = useState<number | null>(null);
+    
+    // NEW: Pending cut marker - where user clicked, waiting for scissor
+    const [pendingCutTime, setPendingCutTime] = useState<number | null>(null);
 
     // Export State
     const [isExporting, setIsExporting] = useState(false);
@@ -146,27 +149,78 @@ const VideoEditor: React.FC = () => {
         setSegments(newSegments);
     };
 
-    // Add split at current position
-    const addSplit = () => {
-        if (!duration) return;
+    // Handle timeline click - place pending cut marker (red line)
+    const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!timelineRef.current || !duration) return;
+        const rect = timelineRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const percentage = Math.max(0, Math.min(1, x / rect.width));
+        const clickTime = percentage * duration;
         
-        // Don't add split at the very start or end
-        if (currentTime < 0.1 || currentTime > duration - 0.1) return;
+        // Don't place at very start or end
+        if (clickTime < 0.1 || clickTime > duration - 0.1) return;
         
-        // Don't add if there's already a split nearby
-        const nearbyExists = splitPoints.some(p => Math.abs(p.time - currentTime) < 0.5);
-        if (nearbyExists) return;
+        // Set this as the pending cut marker
+        setPendingCutTime(clickTime);
         
-        const newPoint: SplitPoint = { id: crypto.randomUUID(), time: currentTime };
-        const newPoints = [...splitPoints, newPoint];
-        setSplitPoints(newPoints);
-        rebuildSegments(newPoints, duration);
+        // Also seek to this position
+        seekTo(clickTime);
     };
 
-    // Delete selected segment
+    // Scissor button - confirm cut at pending marker and select left segment
+    const confirmCut = () => {
+        if (!duration || pendingCutTime === null) return;
+        
+        // Don't add if there's already a split nearby
+        const nearbyExists = splitPoints.some(p => Math.abs(p.time - pendingCutTime) < 0.3);
+        if (nearbyExists) {
+            // Just find and select the segment to the left of this cut
+            const leftSegment = segments.find(s => Math.abs(s.end - pendingCutTime) < 0.3);
+            if (leftSegment) {
+                setSelectedSegmentId(leftSegment.id);
+            }
+            setPendingCutTime(null);
+            return;
+        }
+        
+        // Add new split point
+        const newPoint: SplitPoint = { id: crypto.randomUUID(), time: pendingCutTime };
+        const newPoints = [...splitPoints, newPoint];
+        setSplitPoints(newPoints);
+        
+        // Rebuild segments
+        const sortedTimes = [0, ...newPoints.map(p => p.time).sort((a, b) => a - b), duration];
+        const newSegments: Segment[] = [];
+        
+        for (let i = 0; i < sortedTimes.length - 1; i++) {
+            const existingSegment = segments.find(s => 
+                Math.abs(s.start - sortedTimes[i]) < 0.1 && Math.abs(s.end - sortedTimes[i + 1]) < 0.1
+            );
+            newSegments.push({
+                id: `seg-${i}`,
+                start: sortedTimes[i],
+                end: sortedTimes[i + 1],
+                deleted: existingSegment?.deleted || false
+            });
+        }
+        
+        setSegments(newSegments);
+        
+        // Find and select the segment to the LEFT of the cut (the one that ends at pendingCutTime)
+        const leftSegment = newSegments.find(s => Math.abs(s.end - pendingCutTime) < 0.3);
+        if (leftSegment) {
+            setSelectedSegmentId(leftSegment.id);
+        }
+        
+        // Clear pending cut
+        setPendingCutTime(null);
+    };
+
+    // Delete selected segment and join remaining parts
     const deleteSelectedSegment = () => {
         if (!selectedSegmentId) return;
         
+        // Mark segment as deleted
         setSegments(prev => prev.map(seg => 
             seg.id === selectedSegmentId ? { ...seg, deleted: true } : seg
         ));
@@ -270,15 +324,6 @@ const VideoEditor: React.FC = () => {
             videoRef.current.currentTime = Math.max(0, Math.min(time, duration));
             setCurrentTime(videoRef.current.currentTime);
         }
-    };
-
-    // Timeline click handler
-    const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!timelineRef.current) return;
-        const rect = timelineRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const percentage = x / rect.width;
-        seekTo(percentage * duration);
     };
 
     // Skip forward/backward
@@ -459,8 +504,11 @@ const VideoEditor: React.FC = () => {
             
             switch (e.key.toLowerCase()) {
                 case 's':
-                    e.preventDefault();
-                    addSplit();
+                    // S key confirms cut at pending marker
+                    if (pendingCutTime !== null) {
+                        e.preventDefault();
+                        confirmCut();
+                    }
                     break;
                 case 'delete':
                 case 'backspace':
@@ -481,12 +529,17 @@ const VideoEditor: React.FC = () => {
                     e.preventDefault();
                     skip(5);
                     break;
+                case 'escape':
+                    // Clear pending cut and selection
+                    setPendingCutTime(null);
+                    setSelectedSegmentId(null);
+                    break;
             }
         };
         
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [currentTime, selectedSegmentId, duration, splitPoints]);
+    }, [currentTime, selectedSegmentId, duration, splitPoints, pendingCutTime]);
 
     // Cleanup URL on unmount
     useEffect(() => {
@@ -998,19 +1051,24 @@ const VideoEditor: React.FC = () => {
                         {/* Timeline Toolbar */}
                         <div className="flex items-center gap-1 mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
                             <button
-                                onClick={addSplit}
-                                className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-700 dark:text-gray-300"
-                                title="Split at playhead (S)"
+                                onClick={confirmCut}
+                                disabled={pendingCutTime === null}
+                                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                                    pendingCutTime !== null
+                                    ? 'bg-primary/10 hover:bg-primary/20 text-primary'
+                                    : 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                                }`}
+                                title="Cut at red marker & select left part (S)"
                             >
                                 <Scissors className="w-4 h-4" />
-                                <span className="hidden sm:inline">Split</span>
+                                <span className="hidden sm:inline">Cut</span>
                             </button>
                             <button
                                 onClick={deleteSelectedSegment}
                                 disabled={!selectedSegmentId}
                                 className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                                     selectedSegmentId
-                                    ? 'hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400'
+                                    ? 'bg-red-100 dark:bg-red-900/20 hover:bg-red-200 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400'
                                     : 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
                                 }`}
                                 title="Delete selected segment (Del)"
@@ -1019,15 +1077,32 @@ const VideoEditor: React.FC = () => {
                                 <span className="hidden sm:inline">Delete</span>
                             </button>
                             <div className="flex-1" />
-                            {/* Time markers */}
+                            {/* Status indicators */}
                             <div className="text-xs font-mono text-gray-500 dark:text-gray-400 flex gap-4">
-                                {hoverTime !== null && (
-                                    <span className="text-primary font-bold">
-                                        Hover: {formatTime(hoverTime)}
+                                {pendingCutTime !== null && (
+                                    <span className="text-primary font-bold bg-primary/10 px-2 py-1 rounded">
+                                        ✂️ Cut at: {formatTime(pendingCutTime)}
+                                    </span>
+                                )}
+                                {selectedSegmentId && (
+                                    <span className="text-red-500 font-bold bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded">
+                                        🎯 Selected
+                                    </span>
+                                )}
+                                {hoverTime !== null && !pendingCutTime && (
+                                    <span className="text-gray-600 dark:text-gray-400">
+                                        {formatTime(hoverTime)}
                                     </span>
                                 )}
                             </div>
                         </div>
+
+                        {/* Instructions */}
+                        {segments.length <= 1 && (
+                            <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-xs text-blue-700 dark:text-blue-300">
+                                💡 <strong>How to cut:</strong> Click on timeline to place marker → Click ✂️ Cut → Left part gets selected → Delete or cut again
+                            </div>
+                        )}
 
                         {/* Time Ruler */}
                         <div className="relative h-6 mb-1 text-xs text-gray-500 dark:text-gray-400 font-mono">
@@ -1048,7 +1123,7 @@ const VideoEditor: React.FC = () => {
                         {/* Timeline */}
                         <div 
                             ref={timelineRef}
-                            className="relative h-20 bg-gray-900 rounded-lg overflow-hidden cursor-pointer mb-4"
+                            className="relative h-20 bg-gray-900 rounded-lg overflow-hidden cursor-crosshair mb-4"
                             onClick={handleTimelineClick}
                             onMouseMove={handleTimelineMouseMove}
                             onMouseLeave={handleTimelineMouseLeave}
@@ -1096,7 +1171,7 @@ const VideoEditor: React.FC = () => {
                                 </div>
                             ))}
 
-                            {/* Split point lines */}
+                            {/* Confirmed split point lines */}
                             {splitPoints.map((point) => (
                                 <div
                                     key={point.id}
@@ -1105,8 +1180,24 @@ const VideoEditor: React.FC = () => {
                                 />
                             ))}
 
+                            {/* Pending cut marker - RED dashed line where user clicked */}
+                            {pendingCutTime !== null && (
+                                <div 
+                                    className="absolute top-0 bottom-0 w-1 bg-primary z-25 animate-pulse"
+                                    style={{ 
+                                        left: `${(pendingCutTime / duration) * 100}%`, 
+                                        transform: 'translateX(-50%)',
+                                        boxShadow: '0 0 10px rgba(239, 68, 68, 0.8)'
+                                    }}
+                                >
+                                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] px-1 rounded font-bold whitespace-nowrap">
+                                        ✂️ CUT
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Hover indicator line */}
-                            {hoverPosition !== null && (
+                            {hoverPosition !== null && pendingCutTime === null && (
                                 <div 
                                     className="absolute top-0 bottom-0 w-0.5 bg-white/80 pointer-events-none z-20"
                                     style={{ left: hoverPosition }}
@@ -1117,10 +1208,10 @@ const VideoEditor: React.FC = () => {
 
                             {/* Playhead */}
                             <div 
-                                className="absolute top-0 bottom-0 w-1 bg-primary z-30 shadow-lg"
+                                className="absolute top-0 bottom-0 w-1 bg-white z-30 shadow-lg"
                                 style={{ left: `${(currentTime / duration) * 100}%`, transform: 'translateX(-50%)' }}
                             >
-                                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-primary rounded-full shadow-md border-2 border-white" />
+                                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white rounded-full shadow-md border-2 border-gray-900" />
                             </div>
                         </div>
 
