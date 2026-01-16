@@ -37,3 +37,6 @@ hf-space/
 *.njsproj
 *.sln
 *.sw?
+
+stirling-pdf/
+stirling-pdf-space/

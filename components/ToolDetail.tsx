@@ -87,6 +87,22 @@ const ToolDetail: React.FC = () => {
     const [muteAudio, setMuteAudio] = useState(false);
     const [trimStart, setTrimStart] = useState("00:00:00");
     const [trimEnd, setTrimEnd] = useState("00:00:30");
+    const [videoFormat, setVideoFormat] = useState('mp4');
+    const [videoPreset, setVideoPreset] = useState<'1080p' | '720p' | '480p' | '360p'>('720p');
+    const [videoSpeed, setVideoSpeed] = useState(1.0);
+    const [videoRotation, setVideoRotation] = useState('90');
+    const [gifFps, setGifFps] = useState(15);
+    const [gifWidth, setGifWidth] = useState(480);
+    const [gifDuration, setGifDuration] = useState(5);
+    
+    // Audio States
+    const [audioFormat, setAudioFormat] = useState('mp3');
+    const [audioBitrate, setAudioBitrate] = useState('192k');
+    const [audioVolume, setAudioVolume] = useState(1.0);
+    const [audioSpeed, setAudioSpeed] = useState(1.0);
+    const [fadeIn, setFadeIn] = useState(0);
+    const [fadeOut, setFadeOut] = useState(0);
+    const [audioQuality, setAudioQuality] = useState<'low' | 'medium' | 'high'>('medium');
 
     // Pipeline state
     const [pipelineSteps, setPipelineSteps] = useState<string[]>(['Merge Files']);
@@ -328,6 +344,99 @@ const ToolDetail: React.FC = () => {
                 case 'vid-trim':
                     if (files.length === 0) throw new Error('Please upload a video');
                     result = await api.trimVideo(files[0], trimStart, trimEnd);
+                    break;
+
+                case 'vid-convert':
+                    if (files.length === 0) throw new Error('Please upload a video');
+                    result = await api.convertVideo(files[0], videoFormat, compressionLevel);
+                    break;
+
+                case 'vid-resize':
+                    if (files.length === 0) throw new Error('Please upload a video');
+                    result = await api.resizeVideo(files[0], { preset: videoPreset });
+                    break;
+
+                case 'vid-to-gif':
+                    if (files.length === 0) throw new Error('Please upload a video');
+                    result = await api.videoToGif(files[0], {
+                        fps: gifFps,
+                        width: gifWidth,
+                        duration: gifDuration
+                    });
+                    break;
+
+                case 'vid-extract-audio':
+                    if (files.length === 0) throw new Error('Please upload a video');
+                    result = await api.extractAudioFromVideo(files[0], audioFormat, audioBitrate);
+                    break;
+
+                case 'vid-speed':
+                    if (files.length === 0) throw new Error('Please upload a video');
+                    result = await api.changeVideoSpeed(files[0], videoSpeed);
+                    break;
+
+                case 'vid-rotate':
+                    if (files.length === 0) throw new Error('Please upload a video');
+                    result = await api.rotateVideo(files[0], videoRotation);
+                    break;
+
+                case 'vid-watermark':
+                    if (files.length < 2) throw new Error('Please upload video and watermark image');
+                    result = await api.addVideoWatermark(files[0], files[1], {
+                        position: watermarkPosition,
+                        opacity: watermarkOpacity
+                    });
+                    break;
+
+                case 'vid-merge':
+                    if (files.length < 2) throw new Error('Please upload at least 2 videos');
+                    result = await api.mergeVideos(files);
+                    break;
+
+                case 'vid-mute':
+                    if (files.length === 0) throw new Error('Please upload a video');
+                    result = await api.muteVideo(files[0]);
+                    break;
+
+                // Audio Tools
+                case 'aud-convert':
+                    if (files.length === 0) throw new Error('Please upload an audio file');
+                    result = await api.convertAudio(files[0], audioFormat, audioBitrate);
+                    break;
+
+                case 'aud-compress':
+                    if (files.length === 0) throw new Error('Please upload an audio file');
+                    result = await api.compressAudio(files[0], audioQuality);
+                    break;
+
+                case 'aud-trim':
+                    if (files.length === 0) throw new Error('Please upload an audio file');
+                    result = await api.trimAudio(files[0], trimStart, trimEnd);
+                    break;
+
+                case 'aud-merge':
+                    if (files.length < 2) throw new Error('Please upload at least 2 audio files');
+                    result = await api.mergeAudio(files);
+                    break;
+
+                case 'aud-volume':
+                    if (files.length === 0) throw new Error('Please upload an audio file');
+                    result = await api.changeAudioVolume(files[0], audioVolume);
+                    break;
+
+                case 'aud-speed':
+                    if (files.length === 0) throw new Error('Please upload an audio file');
+                    result = await api.changeAudioSpeed(files[0], audioSpeed);
+                    break;
+
+                case 'aud-fade':
+                    if (files.length === 0) throw new Error('Please upload an audio file');
+                    result = await api.addAudioFade(files[0], fadeIn, fadeOut);
+                    break;
+
+                case 'aud-normalize':
+                    if (files.length === 0) throw new Error('Please upload an audio file');
+                    result = await api.normalizeAudio(files[0]);
                     break;
 
                 default:
@@ -898,6 +1007,7 @@ const ToolDetail: React.FC = () => {
         <div className="space-y-6">
             <div className="space-y-2">
                 <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Compression Level</label>
+                <p className="text-xs text-gray-400">Optimized with ultrafast preset - 10x faster!</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {(['low', 'medium', 'high'] as const).map(level => (
                         <button
@@ -911,7 +1021,7 @@ const ToolDetail: React.FC = () => {
                         >
                             <span className="capitalize block">{level}</span>
                             <span className="text-[10px] text-gray-400 font-normal">
-                                {level === 'low' ? 'Fast, bigger file' : level === 'medium' ? 'Balanced' : 'Slow, tiny file'}
+                                {level === 'low' ? 'Fast, bigger file' : level === 'medium' ? 'Balanced' : 'Smaller file'}
                             </span>
                         </button>
                     ))}
@@ -933,6 +1043,7 @@ const ToolDetail: React.FC = () => {
 
     const renderVideoTrim = () => (
         <div className="space-y-4">
+            <p className="text-xs text-green-600 dark:text-green-400 font-medium">⚡ Uses stream copy - nearly instant!</p>
             <div className="flex justify-between items-end gap-4">
                 <div className="space-y-1 flex-1">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Start Time</label>
@@ -956,6 +1067,368 @@ const ToolDetail: React.FC = () => {
                 </div>
             </div>
             <p className="text-xs text-gray-500">Format: HH:MM:SS or seconds (e.g., 30 or 00:00:30)</p>
+        </div>
+    );
+
+    const renderVideoConvert = () => (
+        <div className="space-y-6">
+            <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Output Format</label>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {['mp4', 'webm', 'avi', 'mkv', 'mov', 'gif'].map(fmt => (
+                        <button
+                            key={fmt}
+                            onClick={() => setVideoFormat(fmt)}
+                            className={`p-2 rounded-lg border uppercase text-xs font-bold transition-all ${
+                                videoFormat === fmt
+                                ? 'border-primary bg-teal-50 dark:bg-teal-900/20 text-primary'
+                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                            }`}
+                        >
+                            {fmt}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderVideoResize = () => (
+        <div className="space-y-6">
+            <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Resolution Preset</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {(['1080p', '720p', '480p', '360p'] as const).map(preset => (
+                        <button
+                            key={preset}
+                            onClick={() => setVideoPreset(preset)}
+                            className={`p-3 rounded-lg border text-center transition-all ${
+                                videoPreset === preset
+                                ? 'border-primary bg-teal-50 dark:bg-teal-900/20 text-primary font-bold'
+                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                            }`}
+                        >
+                            <span className="block font-bold">{preset}</span>
+                            <span className="text-[10px] text-gray-400">
+                                {preset === '1080p' ? '1920×1080' : preset === '720p' ? '1280×720' : preset === '480p' ? '854×480' : '640×360'}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderVideoToGif = () => (
+        <div className="space-y-6">
+            <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">FPS</label>
+                    <input 
+                        type="number" 
+                        value={gifFps} 
+                        onChange={(e) => setGifFps(parseInt(e.target.value) || 15)}
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Width</label>
+                    <input 
+                        type="number" 
+                        value={gifWidth} 
+                        onChange={(e) => setGifWidth(parseInt(e.target.value) || 480)}
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Duration (sec)</label>
+                    <input 
+                        type="number" 
+                        value={gifDuration} 
+                        onChange={(e) => setGifDuration(parseInt(e.target.value) || 5)}
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2"
+                    />
+                </div>
+            </div>
+            <p className="text-xs text-gray-500">Optimized GIF with high-quality palette generation</p>
+        </div>
+    );
+
+    const renderExtractAudio = () => (
+        <div className="space-y-6">
+            <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Audio Format</label>
+                <div className="grid grid-cols-5 gap-2">
+                    {['mp3', 'aac', 'wav', 'ogg', 'flac'].map(fmt => (
+                        <button
+                            key={fmt}
+                            onClick={() => setAudioFormat(fmt)}
+                            className={`p-2 rounded-lg border uppercase text-xs font-bold transition-all ${
+                                audioFormat === fmt
+                                ? 'border-primary bg-teal-50 dark:bg-teal-900/20 text-primary'
+                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                            }`}
+                        >
+                            {fmt}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Bitrate</label>
+                <div className="grid grid-cols-4 gap-2">
+                    {['128k', '192k', '256k', '320k'].map(br => (
+                        <button
+                            key={br}
+                            onClick={() => setAudioBitrate(br)}
+                            className={`p-2 rounded-lg border text-xs font-bold transition-all ${
+                                audioBitrate === br
+                                ? 'border-primary bg-teal-50 dark:bg-teal-900/20 text-primary'
+                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                            }`}
+                        >
+                            {br}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderVideoSpeed = () => (
+        <div className="space-y-6">
+            <div className="space-y-4">
+                <div className="flex justify-between">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Playback Speed</label>
+                    <span className="text-xs font-bold text-primary">{videoSpeed}x</span>
+                </div>
+                <input 
+                    type="range" 
+                    min="0.25" 
+                    max="4" 
+                    step="0.25"
+                    value={videoSpeed} 
+                    onChange={(e) => setVideoSpeed(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+                <div className="flex justify-between text-xs text-gray-400">
+                    <span>0.25x (Slow)</span>
+                    <span>1x (Normal)</span>
+                    <span>4x (Fast)</span>
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderVideoRotate = () => (
+        <div className="space-y-6">
+            <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Rotation</label>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                    {[
+                        { value: '90', label: '90°' },
+                        { value: '180', label: '180°' },
+                        { value: '270', label: '270°' },
+                        { value: 'hflip', label: 'H-Flip' },
+                        { value: 'vflip', label: 'V-Flip' }
+                    ].map(opt => (
+                        <button
+                            key={opt.value}
+                            onClick={() => setVideoRotation(opt.value)}
+                            className={`p-3 rounded-lg border text-center transition-all ${
+                                videoRotation === opt.value
+                                ? 'border-primary bg-teal-50 dark:bg-teal-900/20 text-primary font-bold'
+                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                            }`}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+
+    // Audio render functions
+    const renderAudioConvert = () => (
+        <div className="space-y-6">
+            <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Output Format</label>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {['mp3', 'wav', 'aac', 'ogg', 'flac', 'm4a'].map(fmt => (
+                        <button
+                            key={fmt}
+                            onClick={() => setAudioFormat(fmt)}
+                            className={`p-2 rounded-lg border uppercase text-xs font-bold transition-all ${
+                                audioFormat === fmt
+                                ? 'border-primary bg-pink-50 dark:bg-pink-900/20 text-primary'
+                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                            }`}
+                        >
+                            {fmt}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Bitrate</label>
+                <div className="grid grid-cols-4 gap-2">
+                    {['128k', '192k', '256k', '320k'].map(br => (
+                        <button
+                            key={br}
+                            onClick={() => setAudioBitrate(br)}
+                            className={`p-2 rounded-lg border text-xs font-bold transition-all ${
+                                audioBitrate === br
+                                ? 'border-primary bg-pink-50 dark:bg-pink-900/20 text-primary'
+                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                            }`}
+                        >
+                            {br}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderAudioCompress = () => (
+        <div className="space-y-6">
+            <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Quality Level</label>
+                <div className="grid grid-cols-3 gap-3">
+                    {(['low', 'medium', 'high'] as const).map(level => (
+                        <button
+                            key={level}
+                            onClick={() => setAudioQuality(level)}
+                            className={`px-4 py-3 rounded-md border text-center transition-all ${
+                                audioQuality === level 
+                                ? 'border-primary bg-pink-50 dark:bg-pink-900/20 text-primary font-bold' 
+                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                            }`}
+                        >
+                            <span className="capitalize block">{level}</span>
+                            <span className="text-[10px] text-gray-400 font-normal">
+                                {level === 'low' ? '64 kbps' : level === 'medium' ? '128 kbps' : '192 kbps'}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderAudioTrim = () => (
+        <div className="space-y-4">
+            <p className="text-xs text-green-600 dark:text-green-400 font-medium">⚡ Fast stream copy when possible</p>
+            <div className="flex justify-between items-end gap-4">
+                <div className="space-y-1 flex-1">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Start Time</label>
+                    <input 
+                        type="text" 
+                        value={trimStart}
+                        onChange={(e) => setTrimStart(e.target.value)}
+                        placeholder="00:00:00"
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-3 py-2 text-sm"
+                    />
+                </div>
+                <div className="space-y-1 flex-1">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">End Time</label>
+                    <input 
+                        type="text" 
+                        value={trimEnd}
+                        onChange={(e) => setTrimEnd(e.target.value)}
+                        placeholder="00:00:30"
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-3 py-2 text-sm"
+                    />
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderAudioVolume = () => (
+        <div className="space-y-6">
+            <div className="space-y-4">
+                <div className="flex justify-between">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Volume Level</label>
+                    <span className="text-xs font-bold text-primary">{(audioVolume * 100).toFixed(0)}%</span>
+                </div>
+                <input 
+                    type="range" 
+                    min="0" 
+                    max="3" 
+                    step="0.1"
+                    value={audioVolume} 
+                    onChange={(e) => setAudioVolume(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+                <div className="flex justify-between text-xs text-gray-400">
+                    <span>0% (Mute)</span>
+                    <span>100% (Normal)</span>
+                    <span>300% (Boost)</span>
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderAudioSpeed = () => (
+        <div className="space-y-6">
+            <div className="space-y-4">
+                <div className="flex justify-between">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Playback Speed</label>
+                    <span className="text-xs font-bold text-primary">{audioSpeed}x</span>
+                </div>
+                <input 
+                    type="range" 
+                    min="0.5" 
+                    max="2" 
+                    step="0.1"
+                    value={audioSpeed} 
+                    onChange={(e) => setAudioSpeed(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+                <div className="flex justify-between text-xs text-gray-400">
+                    <span>0.5x (Slow)</span>
+                    <span>1x (Normal)</span>
+                    <span>2x (Fast)</span>
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderAudioFade = () => (
+        <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4">
+                    <div className="flex justify-between">
+                        <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Fade In</label>
+                        <span className="text-xs font-bold text-primary">{fadeIn}s</span>
+                    </div>
+                    <input 
+                        type="range" 
+                        min="0" 
+                        max="10" 
+                        step="0.5"
+                        value={fadeIn} 
+                        onChange={(e) => setFadeIn(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                </div>
+                <div className="space-y-4">
+                    <div className="flex justify-between">
+                        <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Fade Out</label>
+                        <span className="text-xs font-bold text-primary">{fadeOut}s</span>
+                    </div>
+                    <input 
+                        type="range" 
+                        min="0" 
+                        max="10" 
+                        step="0.5"
+                        value={fadeOut} 
+                        onChange={(e) => setFadeOut(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                </div>
+            </div>
         </div>
     );
 
@@ -994,6 +1467,47 @@ const ToolDetail: React.FC = () => {
         // Video
         if (id === 'vid-compress') return renderVideoCompress();
         if (id === 'vid-trim') return renderVideoTrim();
+        if (id === 'vid-convert') return renderVideoConvert();
+        if (id === 'vid-resize') return renderVideoResize();
+        if (id === 'vid-to-gif') return renderVideoToGif();
+        if (id === 'vid-extract-audio') return renderExtractAudio();
+        if (id === 'vid-speed') return renderVideoSpeed();
+        if (id === 'vid-rotate') return renderVideoRotate();
+        if (id === 'vid-watermark') return (
+            <div className="text-center py-4">
+                <p className="text-sm text-gray-500">Upload video first, then watermark image second.</p>
+            </div>
+        );
+        if (id === 'vid-merge') return (
+            <div className="text-center py-4">
+                <p className="text-sm text-gray-500">Upload 2+ videos to merge them together.</p>
+            </div>
+        );
+        if (id === 'vid-mute') return (
+            <div className="text-center py-4">
+                <p className="text-sm text-green-600 font-medium">⚡ Stream copy - instant processing!</p>
+                <p className="text-xs text-gray-500 mt-2">Upload a video to remove its audio track.</p>
+            </div>
+        );
+
+        // Audio
+        if (id === 'aud-convert') return renderAudioConvert();
+        if (id === 'aud-compress') return renderAudioCompress();
+        if (id === 'aud-trim') return renderAudioTrim();
+        if (id === 'aud-merge') return (
+            <div className="text-center py-4">
+                <p className="text-sm text-gray-500">Upload 2+ audio files to merge them together.</p>
+            </div>
+        );
+        if (id === 'aud-volume') return renderAudioVolume();
+        if (id === 'aud-speed') return renderAudioSpeed();
+        if (id === 'aud-fade') return renderAudioFade();
+        if (id === 'aud-normalize') return (
+            <div className="text-center py-4">
+                <p className="text-sm text-gray-500">Upload an audio file to normalize its volume levels.</p>
+                <p className="text-xs text-gray-400 mt-2">Uses EBU R128 loudness normalization (-16 LUFS)</p>
+            </div>
+        );
 
         return (
             <div className="p-4 bg-yellow-50 dark:bg-yellow-900/10 text-yellow-800 dark:text-yellow-200 rounded-md text-sm">
@@ -1008,6 +1522,7 @@ const ToolDetail: React.FC = () => {
         if (id?.startsWith('pdf') || id === 'file-to-pdf') return '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.html,.md,.txt';
         if (id?.startsWith('img') || id === 'images-to-pdf') return 'image/*';
         if (id?.startsWith('vid')) return 'video/*';
+        if (id?.startsWith('aud')) return 'audio/*';
         return '*';
     })();
 

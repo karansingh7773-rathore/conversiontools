@@ -293,6 +293,195 @@ export const TOOLS: Tool[] = [
         badge: 'FFmpeg',
         ctaText: 'Trim',
         category: 'Video Tools'
+    },
+    {
+        id: 'vid-convert',
+        title: 'Video Converter',
+        description: 'Convert videos to MP4, WebM, AVI, MKV, MOV formats.',
+        icon: RefreshCw,
+        color: 'text-teal-500',
+        bgColor: 'bg-teal-100 dark:bg-teal-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Convert',
+        category: 'Video Tools'
+    },
+    {
+        id: 'vid-resize',
+        title: 'Video Resize',
+        description: 'Change resolution to 1080p, 720p, 480p, or custom size.',
+        icon: Minimize2,
+        color: 'text-teal-500',
+        bgColor: 'bg-teal-100 dark:bg-teal-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Resize',
+        category: 'Video Tools'
+    },
+    {
+        id: 'vid-to-gif',
+        title: 'Video to GIF',
+        description: 'Convert video clips to optimized animated GIFs.',
+        icon: ImageIcon,
+        color: 'text-teal-500',
+        bgColor: 'bg-teal-100 dark:bg-teal-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Create GIF',
+        category: 'Video Tools'
+    },
+    {
+        id: 'vid-extract-audio',
+        title: 'Extract Audio',
+        description: 'Extract audio track from video as MP3, AAC, or WAV.',
+        icon: Music,
+        color: 'text-teal-500',
+        bgColor: 'bg-teal-100 dark:bg-teal-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Extract',
+        category: 'Video Tools'
+    },
+    {
+        id: 'vid-speed',
+        title: 'Video Speed',
+        description: 'Speed up or slow down video playback.',
+        icon: RefreshCw,
+        color: 'text-teal-500',
+        bgColor: 'bg-teal-100 dark:bg-teal-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Change Speed',
+        category: 'Video Tools'
+    },
+    {
+        id: 'vid-rotate',
+        title: 'Rotate Video',
+        description: 'Rotate 90°, 180°, 270° or flip horizontally/vertically.',
+        icon: RotateCw,
+        color: 'text-teal-500',
+        bgColor: 'bg-teal-100 dark:bg-teal-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Rotate',
+        category: 'Video Tools'
+    },
+    {
+        id: 'vid-watermark',
+        title: 'Video Watermark',
+        description: 'Add image watermark overlay to videos.',
+        icon: Type,
+        color: 'text-teal-500',
+        bgColor: 'bg-teal-100 dark:bg-teal-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Watermark',
+        category: 'Video Tools'
+    },
+    {
+        id: 'vid-merge',
+        title: 'Merge Videos',
+        description: 'Combine multiple videos into one file.',
+        icon: Layers,
+        color: 'text-teal-500',
+        bgColor: 'bg-teal-100 dark:bg-teal-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Merge',
+        category: 'Video Tools'
+    },
+    {
+        id: 'vid-mute',
+        title: 'Mute Video',
+        description: 'Remove audio track from video.',
+        icon: EyeOff,
+        color: 'text-teal-500',
+        bgColor: 'bg-teal-100 dark:bg-teal-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Mute',
+        category: 'Video Tools'
+    },
+
+    // --- Audio Tools (FFmpeg) ---
+    {
+        id: 'aud-convert',
+        title: 'Audio Converter',
+        description: 'Convert audio to MP3, WAV, AAC, OGG, FLAC, M4A.',
+        icon: Music,
+        color: 'text-pink-500',
+        bgColor: 'bg-pink-100 dark:bg-pink-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Convert',
+        category: 'Audio Tools'
+    },
+    {
+        id: 'aud-compress',
+        title: 'Audio Compressor',
+        description: 'Reduce audio file size with quality control.',
+        icon: Minimize2,
+        color: 'text-pink-500',
+        bgColor: 'bg-pink-100 dark:bg-pink-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Compress',
+        category: 'Audio Tools'
+    },
+    {
+        id: 'aud-trim',
+        title: 'Audio Trimmer',
+        description: 'Cut audio by start and end time.',
+        icon: Scissors,
+        color: 'text-pink-500',
+        bgColor: 'bg-pink-100 dark:bg-pink-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Trim',
+        category: 'Audio Tools'
+    },
+    {
+        id: 'aud-merge',
+        title: 'Merge Audio',
+        description: 'Combine multiple audio files into one.',
+        icon: Layers,
+        color: 'text-pink-500',
+        bgColor: 'bg-pink-100 dark:bg-pink-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Merge',
+        category: 'Audio Tools'
+    },
+    {
+        id: 'aud-volume',
+        title: 'Volume Changer',
+        description: 'Increase or decrease audio volume.',
+        icon: Music,
+        color: 'text-pink-500',
+        bgColor: 'bg-pink-100 dark:bg-pink-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Adjust',
+        category: 'Audio Tools'
+    },
+    {
+        id: 'aud-speed',
+        title: 'Audio Speed',
+        description: 'Speed up or slow down audio playback.',
+        icon: RefreshCw,
+        color: 'text-pink-500',
+        bgColor: 'bg-pink-100 dark:bg-pink-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Change Speed',
+        category: 'Audio Tools'
+    },
+    {
+        id: 'aud-fade',
+        title: 'Audio Fade',
+        description: 'Add fade in and fade out effects.',
+        icon: Music,
+        color: 'text-pink-500',
+        bgColor: 'bg-pink-100 dark:bg-pink-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Add Fade',
+        category: 'Audio Tools'
+    },
+    {
+        id: 'aud-normalize',
+        title: 'Normalize Audio',
+        description: 'Balance audio levels for consistent volume.',
+        icon: Settings,
+        color: 'text-pink-500',
+        bgColor: 'bg-pink-100 dark:bg-pink-900/20',
+        badge: 'FFmpeg',
+        ctaText: 'Normalize',
+        category: 'Audio Tools'
     }
 ];
 
