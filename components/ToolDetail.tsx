@@ -37,6 +37,10 @@ const ToolDetail: React.FC = () => {
     const [processingProgress, setProcessingProgress] = useState(0);
     const [processingMessage, setProcessingMessage] = useState('');
     
+    // Input string states (for proper backspace handling)
+    const [targetSizeMBInput, setTargetSizeMBInput] = useState('50');
+    const [validationError, setValidationError] = useState<string | null>(null);
+    
     // Mock Pages for Rotate/Organize (will be populated from uploaded PDF)
     const [mockPages, setMockPages] = useState<PageInfo[]>(
         Array.from({ length: 8 }, (_, i) => ({ id: i, num: i + 1, rot: 0 }))
@@ -167,6 +171,44 @@ const ToolDetail: React.FC = () => {
         setUploadedFiles([]);
         setError(null);
         setSuccess(null);
+        setValidationError(null);
+    };
+
+    // Simulate progress for realistic feedback during processing
+    const simulateProgress = (duration: number = 10000) => {
+        setProcessingProgress(5);
+        let progress = 5;
+        const interval = setInterval(() => {
+            // Increase progress gradually, slow down near the end
+            if (progress < 40) {
+                progress += Math.random() * 8 + 2;
+            } else if (progress < 70) {
+                progress += Math.random() * 5 + 1;
+            } else if (progress < 90) {
+                progress += Math.random() * 2 + 0.5;
+            } else if (progress < 95) {
+                progress += Math.random() * 0.5;
+            }
+            // Cap at 95% until actual completion
+            progress = Math.min(progress, 95);
+            setProcessingProgress(Math.round(progress));
+        }, duration / 20);
+        
+        return () => {
+            clearInterval(interval);
+            setProcessingProgress(100);
+        };
+    };
+
+    // Validate target size input
+    const validateTargetSize = (value: string): boolean => {
+        const num = parseFloat(value);
+        if (isNaN(num) || num < 1) {
+            setValidationError('Minimum target size is 1 MB');
+            return false;
+        }
+        setValidationError(null);
+        return true;
     };
 
     // Page manipulation for rotate/organize
@@ -339,119 +381,256 @@ const ToolDetail: React.FC = () => {
                     break;
 
                 // Video Tools
-                case 'vid-compress':
+                case 'vid-compress': {
                     if (files.length === 0) throw new Error('Please upload a video');
-                    setProcessingProgress(10);
+                    // Validate target size if that method is selected
+                    if (compressionMethod === 'target_size' && !validateTargetSize(targetSizeMBInput)) {
+                        throw new Error('Please enter a valid target size (minimum 1 MB)');
+                    }
+                    const finalTargetSizeMB = compressionMethod === 'target_size' ? parseFloat(targetSizeMBInput) || 50 : targetSizeMB;
+                    
                     setProcessingMessage(`Compressing ${files[0].name}...`);
-                    result = await api.compressVideo(files[0], {
-                        compressionMethod,
-                        compressionLevel,
-                        targetSizeMB,
-                        targetPercentage,
-                        targetQuality,
-                        targetResolution: videoPreset,
-                        muteAudio
-                    });
-                    setProcessingProgress(100);
+                    const stopProgress = simulateProgress(30000); // Estimate 30 seconds for video
+                    
+                    try {
+                        result = await api.compressVideo(files[0], {
+                            compressionMethod,
+                            compressionLevel,
+                            targetSizeMB: finalTargetSizeMB,
+                            targetPercentage,
+                            targetQuality,
+                            targetResolution: videoPreset,
+                            muteAudio
+                        });
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'vid-trim':
+                case 'vid-trim': {
                     if (files.length === 0) throw new Error('Please upload a video');
-                    result = await api.trimVideo(files[0], trimStart, trimEnd);
+                    setProcessingMessage(`Trimming ${files[0].name}...`);
+                    const stopProgress = simulateProgress(5000);
+                    try {
+                        result = await api.trimVideo(files[0], trimStart, trimEnd);
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'vid-convert':
+                case 'vid-convert': {
                     if (files.length === 0) throw new Error('Please upload a video');
-                    result = await api.convertVideo(files[0], videoFormat, compressionLevel);
+                    setProcessingMessage(`Converting to ${videoFormat}...`);
+                    const stopProgress = simulateProgress(20000);
+                    try {
+                        result = await api.convertVideo(files[0], videoFormat, compressionLevel);
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'vid-resize':
+                case 'vid-resize': {
                     if (files.length === 0) throw new Error('Please upload a video');
-                    result = await api.resizeVideo(files[0], { preset: videoPreset });
+                    setProcessingMessage(`Resizing to ${videoPreset}...`);
+                    const stopProgress = simulateProgress(25000);
+                    try {
+                        result = await api.resizeVideo(files[0], { preset: videoPreset });
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'vid-to-gif':
+                case 'vid-to-gif': {
                     if (files.length === 0) throw new Error('Please upload a video');
-                    result = await api.videoToGif(files[0], {
-                        fps: gifFps,
-                        width: gifWidth,
-                        duration: gifDuration
-                    });
+                    setProcessingMessage(`Converting to GIF...`);
+                    const stopProgress = simulateProgress(15000);
+                    try {
+                        result = await api.videoToGif(files[0], {
+                            fps: gifFps,
+                            width: gifWidth,
+                            duration: gifDuration
+                        });
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'vid-extract-audio':
+                case 'vid-extract-audio': {
                     if (files.length === 0) throw new Error('Please upload a video');
-                    result = await api.extractAudioFromVideo(files[0], audioFormat, audioBitrate);
+                    setProcessingMessage(`Extracting audio as ${audioFormat}...`);
+                    const stopProgress = simulateProgress(10000);
+                    try {
+                        result = await api.extractAudioFromVideo(files[0], audioFormat, audioBitrate);
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'vid-speed':
+                case 'vid-speed': {
                     if (files.length === 0) throw new Error('Please upload a video');
-                    result = await api.changeVideoSpeed(files[0], videoSpeed);
+                    setProcessingMessage(`Changing video speed to ${videoSpeed}x...`);
+                    const stopProgress = simulateProgress(20000);
+                    try {
+                        result = await api.changeVideoSpeed(files[0], videoSpeed);
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'vid-rotate':
+                case 'vid-rotate': {
                     if (files.length === 0) throw new Error('Please upload a video');
-                    result = await api.rotateVideo(files[0], videoRotation);
+                    setProcessingMessage(`Rotating video ${videoRotation}°...`);
+                    const stopProgress = simulateProgress(15000);
+                    try {
+                        result = await api.rotateVideo(files[0], videoRotation);
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'vid-watermark':
+                case 'vid-watermark': {
                     if (files.length < 2) throw new Error('Please upload video and watermark image');
-                    result = await api.addVideoWatermark(files[0], files[1], {
-                        position: watermarkPosition,
-                        opacity: watermarkOpacity
-                    });
+                    setProcessingMessage('Adding watermark...');
+                    const stopProgress = simulateProgress(25000);
+                    try {
+                        result = await api.addVideoWatermark(files[0], files[1], {
+                            position: watermarkPosition,
+                            opacity: watermarkOpacity
+                        });
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'vid-merge':
+                case 'vid-merge': {
                     if (files.length < 2) throw new Error('Please upload at least 2 videos');
-                    result = await api.mergeVideos(files);
+                    setProcessingMessage(`Merging ${files.length} videos...`);
+                    const stopProgress = simulateProgress(30000);
+                    try {
+                        result = await api.mergeVideos(files);
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'vid-mute':
+                case 'vid-mute': {
                     if (files.length === 0) throw new Error('Please upload a video');
-                    result = await api.muteVideo(files[0]);
+                    setProcessingMessage('Removing audio track...');
+                    const stopProgress = simulateProgress(5000);
+                    try {
+                        result = await api.muteVideo(files[0]);
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
                 // Audio Tools
-                case 'aud-convert':
+                case 'aud-convert': {
                     if (files.length === 0) throw new Error('Please upload an audio file');
-                    result = await api.convertAudio(files[0], audioFormat, audioBitrate);
+                    setProcessingMessage(`Converting to ${audioFormat}...`);
+                    const stopProgress = simulateProgress(10000);
+                    try {
+                        result = await api.convertAudio(files[0], audioFormat, audioBitrate);
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'aud-compress':
+                case 'aud-compress': {
                     if (files.length === 0) throw new Error('Please upload an audio file');
-                    result = await api.compressAudio(files[0], audioQuality);
+                    setProcessingMessage('Compressing audio...');
+                    const stopProgress = simulateProgress(10000);
+                    try {
+                        result = await api.compressAudio(files[0], audioQuality);
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'aud-trim':
+                case 'aud-trim': {
                     if (files.length === 0) throw new Error('Please upload an audio file');
-                    result = await api.trimAudio(files[0], trimStart, trimEnd);
+                    setProcessingMessage('Trimming audio...');
+                    const stopProgress = simulateProgress(5000);
+                    try {
+                        result = await api.trimAudio(files[0], trimStart, trimEnd);
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'aud-merge':
+                case 'aud-merge': {
                     if (files.length < 2) throw new Error('Please upload at least 2 audio files');
-                    result = await api.mergeAudio(files);
+                    setProcessingMessage(`Merging ${files.length} audio files...`);
+                    const stopProgress = simulateProgress(15000);
+                    try {
+                        result = await api.mergeAudio(files);
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'aud-volume':
+                case 'aud-volume': {
                     if (files.length === 0) throw new Error('Please upload an audio file');
-                    result = await api.changeAudioVolume(files[0], audioVolume);
+                    setProcessingMessage(`Adjusting volume to ${audioVolume}x...`);
+                    const stopProgress = simulateProgress(8000);
+                    try {
+                        result = await api.changeAudioVolume(files[0], audioVolume);
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'aud-speed':
+                case 'aud-speed': {
                     if (files.length === 0) throw new Error('Please upload an audio file');
-                    result = await api.changeAudioSpeed(files[0], audioSpeed);
+                    setProcessingMessage(`Changing speed to ${audioSpeed}x...`);
+                    const stopProgress = simulateProgress(10000);
+                    try {
+                        result = await api.changeAudioSpeed(files[0], audioSpeed);
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'aud-fade':
+                case 'aud-fade': {
                     if (files.length === 0) throw new Error('Please upload an audio file');
-                    result = await api.addAudioFade(files[0], fadeIn, fadeOut);
+                    setProcessingMessage('Adding fade effects...');
+                    const stopProgress = simulateProgress(8000);
+                    try {
+                        result = await api.addAudioFade(files[0], fadeIn, fadeOut);
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
-                case 'aud-normalize':
+                case 'aud-normalize': {
                     if (files.length === 0) throw new Error('Please upload an audio file');
-                    result = await api.normalizeAudio(files[0]);
+                    setProcessingMessage('Normalizing audio levels...');
+                    const stopProgress = simulateProgress(8000);
+                    try {
+                        result = await api.normalizeAudio(files[0]);
+                    } finally {
+                        stopProgress();
+                    }
                     break;
+                }
 
                 default:
                     throw new Error('This tool is not yet implemented');
@@ -1068,11 +1247,37 @@ const ToolDetail: React.FC = () => {
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Target File Size (MB)</label>
                     <input 
                         type="number" 
-                        value={targetSizeMB} 
-                        onChange={(e) => setTargetSizeMB(parseInt(e.target.value) || 50)}
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2"
+                        min="1"
+                        value={targetSizeMBInput} 
+                        onChange={(e) => {
+                            setTargetSizeMBInput(e.target.value);
+                            // Clear validation error when user types
+                            if (validationError) setValidationError(null);
+                        }}
+                        onBlur={(e) => {
+                            // Validate on blur
+                            const val = parseFloat(e.target.value);
+                            if (isNaN(val) || val < 1) {
+                                setValidationError('Minimum target size is 1 MB');
+                            } else {
+                                setValidationError(null);
+                            }
+                        }}
+                        className={`w-full bg-gray-50 dark:bg-gray-800 border rounded-md px-3 py-2 ${
+                            validationError 
+                            ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
+                            : 'border-gray-200 dark:border-gray-700'
+                        }`}
                     />
-                    <p className="text-xs text-gray-500">Enter desired file size in megabytes</p>
+                    {validationError && (
+                        <p className="text-xs text-red-500 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            {validationError}
+                        </p>
+                    )}
+                    {!validationError && (
+                        <p className="text-xs text-gray-500">Enter desired file size in megabytes (min: 1 MB)</p>
+                    )}
                 </div>
             )}
 
@@ -1727,6 +1932,57 @@ const ToolDetail: React.FC = () => {
                                 onChange={handleFileSelect}
                                 className="hidden"
                             />
+                        </div>
+                    )}
+
+                    {/* Uploaded Files List - Show for all tools except PDF merge (which has its own) */}
+                    {needsFileUpload && uploadedFiles.length > 0 && id !== 'pdf-merge' && (
+                        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                                    Uploaded Files ({uploadedFiles.length})
+                                </h4>
+                                <button 
+                                    onClick={clearAllFiles}
+                                    className="text-xs text-red-500 hover:text-red-600 font-medium"
+                                >
+                                    Clear All
+                                </button>
+                            </div>
+                            <div className="space-y-2">
+                                {uploadedFiles.map((file) => (
+                                    <div 
+                                        key={file.id} 
+                                        className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md"
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                {id?.startsWith('vid') ? (
+                                                    <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                                ) : id?.startsWith('aud') ? (
+                                                    <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                                                ) : id?.startsWith('img') ? (
+                                                    <FileText className="w-5 h-5 text-green-600 dark:text-green-400" />
+                                                ) : (
+                                                    <FileText className="w-5 h-5 text-red-600 dark:text-red-400" />
+                                                )}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-[200px] sm:max-w-[300px]">
+                                                    {file.name}
+                                                </p>
+                                                <p className="text-xs text-gray-500">{file.size}</p>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => removeFile(file.id)}
+                                            className="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
 
