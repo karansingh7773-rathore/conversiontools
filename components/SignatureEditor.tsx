@@ -4,10 +4,11 @@ import SignatureCanvas from 'react-signature-canvas';
 import {
     ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
     ZoomIn, ZoomOut, Trash2, Undo2, Redo2, Pause, Play,
-    Upload, Loader2, Save, X
+    Upload, Loader2, Save, X, Download
 } from 'lucide-react';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import { signPdfClientSide, downloadBlob } from '../services/pdfClientSigning';
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -78,6 +79,7 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
     const [history, setHistory] = useState<PlacedSignature[][]>([[]]);
     const [historyIndex, setHistoryIndex] = useState<number>(0);
     const [selectedSignatureId, setSelectedSignatureId] = useState<string | null>(null);
+    const [localProcessing, setLocalProcessing] = useState<boolean>(false);
 
     // Refs
     const modalCanvasRef = useRef<SignatureCanvas>(null);
@@ -320,23 +322,44 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
     };
 
     const handleApplySignatures = async () => {
-        // Send ALL placed signatures across ALL pages
+        // Process signatures LOCALLY using pdf-lib - no server needed!
         if (placedSignatures.length === 0) {
             alert('No signatures placed on the PDF');
             return;
         }
 
-        // Send all signatures as an array
-        await onSign({
-            signatures: placedSignatures.map(sig => ({
+        setLocalProcessing(true);
+        try {
+            // Convert signatures to the format expected by pdf-lib
+            const signaturesData = placedSignatures.map(sig => ({
                 signatureImage: sig.image,
                 page: sig.page,
                 positionX: sig.x,
                 positionY: sig.y,
                 width: sig.width,
                 height: sig.height
-            }))
-        });
+            }));
+
+            // Sign the PDF entirely in the browser - INSTANT!
+            const signedPdfBlob = await signPdfClientSide(file, signaturesData);
+
+            // Generate filename
+            const originalName = file.name.replace(/\.pdf$/i, '');
+            const filename = `${originalName}_signed.pdf`;
+
+            // Download the signed PDF
+            downloadBlob(signedPdfBlob, filename);
+
+            // Also call onSign to notify parent (optional, for UI state)
+            await onSign({
+                signatures: signaturesData
+            });
+        } catch (error) {
+            console.error('Failed to sign PDF:', error);
+            alert('Failed to sign PDF: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        } finally {
+            setLocalProcessing(false);
+        }
     };
 
     const signaturesOnPage = placedSignatures.filter(s => s.page === currentPage);
@@ -358,16 +381,19 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                     </div>
                     <button
                         onClick={handleApplySignatures}
-                        disabled={isProcessing || placedSignatures.length === 0}
+                        disabled={isProcessing || localProcessing || placedSignatures.length === 0}
                         className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
-                        {isProcessing ? (
+                        {(isProcessing || localProcessing) ? (
                             <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Processing...
+                                Signing...
                             </>
                         ) : (
-                            'Apply Signatures'
+                            <>
+                                <Download className="w-4 h-4" />
+                                Download Signed PDF
+                            </>
                         )}
                     </button>
                 </div>
