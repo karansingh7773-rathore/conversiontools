@@ -9,6 +9,7 @@ import { TOOLS } from '../constants';
 import * as api from '../services/api';
 import * as pdfClient from '../services/pdfClientUtils';
 import SignatureEditor, { SignatureData } from './SignatureEditor';
+import MergeEditor from './MergeEditor';
 
 // Types
 interface UploadedFile {
@@ -694,51 +695,28 @@ const ToolDetail: React.FC = () => {
     };
 
     // --- UI Renderers ---
-    const renderPdfMerge = () => (
-        <div className="space-y-4">
-            <div className="space-y-2">
-                <div className="flex justify-between items-center mb-2">
-                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Files to Merge</label>
-                    {uploadedFiles.length > 0 && (
-                        <button
-                            onClick={clearAllFiles}
-                            className="text-xs text-primary font-bold hover:underline"
-                        >
-                            Clear All
-                        </button>
-                    )}
+    const renderPdfMerge = () => {
+        if (uploadedFiles.length === 0) {
+            return (
+                <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Upload 2 or more PDF documents to merge them.
+                    </p>
                 </div>
-                <div className="space-y-2">
-                    {uploadedFiles.map((file) => (
-                        <div key={file.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md group hover:border-primary/30 transition-colors">
-                            <div className="flex items-center gap-3">
-                                <GripVertical className="w-4 h-4 text-gray-400 cursor-move" />
-                                <div className="h-8 w-8 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center text-red-500">
-                                    <FileText className="w-4 h-4" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-900 dark:text-gray-200">{file.name}</p>
-                                    <p className="text-xs text-gray-500">{file.size}</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => removeFile(file.id)}
-                                className="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            </div>
-            {uploadedFiles.length >= 2 && (
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-sm rounded-md flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4" />
-                    Ready to merge {uploadedFiles.length} files.
-                </div>
-            )}
-        </div>
-    );
+            );
+        }
+
+        // Show full-screen MergeEditor when files are uploaded
+        return (
+            <MergeEditor
+                files={uploadedFiles.map(f => f.file)}
+                onClose={() => {
+                    clearAllFiles();
+                    navigate(-1);
+                }}
+            />
+        );
+    };
 
     const renderPdfSplit = () => (
         <div className="space-y-6">
