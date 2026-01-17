@@ -226,9 +226,13 @@ export async function ocrPDF(
 
 export async function pdfToOffice(
     file: File,
-    outputFormat: 'docx' | 'xlsx' | 'pptx' = 'docx'
+    outputFormat: 'docx' | 'xlsx' | 'pptx' = 'docx',
+    ocrFirst: boolean = false  // OCR scanned PDFs before conversion
 ): Promise<ApiResponse> {
-    return uploadFiles('/api/pdf/to-office', [file], { output_format: outputFormat }, 'file');
+    return uploadFiles('/api/pdf/to-office', [file], {
+        output_format: outputFormat,
+        ocr_first: ocrFirst
+    }, 'file');
 }
 
 export async function fileToPDF(file: File): Promise<ApiResponse> {

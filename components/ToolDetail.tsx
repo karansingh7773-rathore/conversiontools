@@ -84,6 +84,11 @@ const ToolDetail: React.FC = () => {
     // URL to PDF
     const [urlInput, setUrlInput] = useState('');
 
+    // PDF to Office state
+    const [officeFormat, setOfficeFormat] = useState<'docx' | 'xlsx' | 'pptx'>('docx');
+    const [ocrForScanned, setOcrForScanned] = useState(false); // Only for scanned/image-based PDFs
+
+
     // Image States
     const [width, setWidth] = useState(1920);
     const [height, setHeight] = useState(1080);
@@ -383,7 +388,8 @@ const ToolDetail: React.FC = () => {
 
                 case 'pdf-to-office':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
-                    result = await api.pdfToOffice(files[0], 'docx');
+                    setProcessingMessage(ocrForScanned ? 'OCR + Converting to Office format...' : 'Converting to Office format...');
+                    result = await api.pdfToOffice(files[0], officeFormat, ocrForScanned);
                     break;
 
                 case 'file-to-pdf':
