@@ -306,10 +306,8 @@ export async function signPDF(
     const formData = new FormData();
     formData.append('file', file);
 
-    // Convert base64 data URL to Blob
-    const res = await fetch(signatureImage);
-    const signatureBlob = await res.blob();
-    formData.append('signature_image', signatureBlob, 'signature.png');
+    // Send base64 data URL directly as form string
+    formData.append('signature_image', signatureImage);
 
     formData.append('page', String(options.page));
     formData.append('position_x', String(options.positionX));
