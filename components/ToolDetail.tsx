@@ -258,6 +258,11 @@ const ToolDetail: React.FC = () => {
                 // PDF Page Ops - CLIENT-SIDE (INSTANT!)
                 case 'pdf-merge': {
                     if (files.length < 2) throw new Error('Please upload at least 2 PDF files');
+                    // Validate all files are PDFs
+                    const nonPdfFiles = files.filter(f => !f.name.toLowerCase().endsWith('.pdf'));
+                    if (nonPdfFiles.length > 0) {
+                        throw new Error(`Invalid file(s): ${nonPdfFiles.map(f => f.name).join(', ')}. Only PDF files can be merged.`);
+                    }
                     setProcessingMessage('Merging PDFs... (processing locally)');
                     const mergedBlob = await pdfClient.mergePdfs(files);
                     pdfClient.downloadBlob(mergedBlob, 'merged.pdf');
