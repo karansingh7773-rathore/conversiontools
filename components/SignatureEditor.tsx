@@ -37,6 +37,7 @@ interface PlacedSignature {
     height: number;
     image: string;
     page: number;
+    aspectRatio: number; // width / height for proper scaling
 }
 
 type SignatureMode = 'canvas' | 'image' | 'text';
@@ -76,6 +77,7 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
     const [placedSignatures, setPlacedSignatures] = useState<PlacedSignature[]>([]);
     const [history, setHistory] = useState<PlacedSignature[][]>([[]]);
     const [historyIndex, setHistoryIndex] = useState<number>(0);
+    const [selectedSignatureId, setSelectedSignatureId] = useState<string | null>(null);
 
     // Refs
     const modalCanvasRef = useRef<SignatureCanvas>(null);
@@ -178,40 +180,130 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
         if (!pdfPage) return;
 
         const rect = pdfPage.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        const clickX = ((e.clientX - rect.left) / rect.width) * 100;
+        const clickY = ((e.clientY - rect.top) / rect.height) * 100;
 
-        const sigWidth = 20;
-        const sigHeight = 10;
+        // Load image to get proper aspect ratio
+        const img = new Image();
+        img.onload = () => {
+            const aspectRatio = img.width / img.height;
 
-        const newSignature: PlacedSignature = {
-            id: Date.now().toString(),
-            x: Math.max(0, Math.min(x - sigWidth / 2, 100 - sigWidth)),
-            y: Math.max(0, Math.min(y - sigHeight / 2, 100 - sigHeight)),
-            width: sigWidth,
-            height: sigHeight,
-            image: currentSignature,
-            page: currentPage
+            // Base width at 15% of page, height calculated from aspect ratio
+            const sigWidth = 15;
+            // Convert height to percentage (aspect ratio is in pixels, need to account for page aspect)
+            const pageAspect = rect.width / rect.height;
+            const sigHeight = (sigWidth / aspectRatio) * pageAspect;
+
+            const newSignature: PlacedSignature = {
+                id: Date.now().toString(),
+                x: Math.max(0, Math.min(clickX - sigWidth / 2, 100 - sigWidth)),
+                y: Math.max(0, Math.min(clickY - sigHeight / 2, 100 - sigHeight)),
+                width: sigWidth,
+                height: sigHeight,
+                image: currentSignature,
+                page: currentPage,
+                aspectRatio: aspectRatio
+            };
+
+            const newPlaced = [...placedSignatures, newSignature];
+            setPlacedSignatures(newPlaced);
+            setSelectedSignatureId(newSignature.id);
+
+            const newHistory = history.slice(0, historyIndex + 1);
+            newHistory.push(newPlaced);
+            setHistory(newHistory);
+            setHistoryIndex(newHistory.length - 1);
         };
-
-        const newPlaced = [...placedSignatures, newSignature];
-        setPlacedSignatures(newPlaced);
-
-        const newHistory = history.slice(0, historyIndex + 1);
-        newHistory.push(newPlaced);
-        setHistory(newHistory);
-        setHistoryIndex(newHistory.length - 1);
+        img.src = currentSignature;
     }, [signatureReady, placementActive, currentSignature, currentPage, placedSignatures, history, historyIndex]);
 
     const removeSignature = (id: string) => {
         const newPlaced = placedSignatures.filter(s => s.id !== id);
         setPlacedSignatures(newPlaced);
+        setSelectedSignatureId(null);
 
         const newHistory = history.slice(0, historyIndex + 1);
         newHistory.push(newPlaced);
         setHistory(newHistory);
         setHistoryIndex(newHistory.length - 1);
     };
+
+    // Resize signature handler - maintains aspect ratio
+    const handleResize = useCallback((sigId: string, corner: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        const pdfPage = pdfPageRef.current;
+        if (!pdfPage) return;
+
+        const sig = placedSignatures.find(s => s.id === sigId);
+        if (!sig) return;
+
+        const rect = pdfPage.getBoundingClientRect();
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const startWidth = sig.width;
+        const startHeight = sig.height;
+        const startLeft = sig.x;
+        const startTop = sig.y;
+        const aspectRatio = sig.aspectRatio || (startWidth / startHeight);
+
+        const handleMouseMove = (moveEvent: MouseEvent) => {
+            const deltaX = ((moveEvent.clientX - startX) / rect.width) * 100;
+            const deltaY = ((moveEvent.clientY - startY) / rect.height) * 100;
+
+            let newWidth = startWidth;
+            let newHeight = startHeight;
+            let newX = startLeft;
+            let newY = startTop;
+
+            // Calculate new size based on corner being dragged
+            const pageAspect = rect.width / rect.height;
+
+            if (corner.includes('right')) {
+                newWidth = Math.max(5, Math.min(100 - startLeft, startWidth + deltaX));
+                newHeight = (newWidth / aspectRatio) * pageAspect;
+            } else if (corner.includes('left')) {
+                newWidth = Math.max(5, startWidth - deltaX);
+                newHeight = (newWidth / aspectRatio) * pageAspect;
+                newX = startLeft + (startWidth - newWidth);
+            }
+
+            if (corner.includes('bottom')) {
+                newHeight = Math.max(5, Math.min(100 - startTop, startHeight + deltaY));
+                newWidth = (newHeight * aspectRatio) / pageAspect;
+            } else if (corner.includes('top')) {
+                newHeight = Math.max(5, startHeight - deltaY);
+                newWidth = (newHeight * aspectRatio) / pageAspect;
+                newY = startTop + (startHeight - newHeight);
+            }
+
+            // Clamp values
+            newWidth = Math.max(3, Math.min(80, newWidth));
+            newHeight = Math.max(3, Math.min(80, newHeight));
+            newX = Math.max(0, Math.min(100 - newWidth, newX));
+            newY = Math.max(0, Math.min(100 - newHeight, newY));
+
+            const updated = placedSignatures.map(s =>
+                s.id === sigId ? { ...s, width: newWidth, height: newHeight, x: newX, y: newY } : s
+            );
+            setPlacedSignatures(updated);
+        };
+
+        const handleMouseUp = () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+
+            // Save to history
+            const newHistory = history.slice(0, historyIndex + 1);
+            newHistory.push(placedSignatures);
+            setHistory(newHistory);
+            setHistoryIndex(newHistory.length - 1);
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+    }, [placedSignatures, history, historyIndex]);
 
     const undo = () => {
         if (historyIndex > 0) {
@@ -529,34 +621,72 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                                     </Document>
 
                                     {/* Placed Signatures */}
-                                    {signaturesOnPage.map((sig) => (
-                                        <div
-                                            key={sig.id}
-                                            className="absolute group"
-                                            style={{
-                                                left: `${sig.x}%`,
-                                                top: `${sig.y}%`,
-                                                width: `${sig.width}%`,
-                                                height: `${sig.height}%`,
-                                            }}
-                                        >
-                                            <img
-                                                src={sig.image}
-                                                alt="Signature"
-                                                className="w-full h-full object-contain"
-                                                draggable={false}
-                                            />
-                                            <button
+                                    {signaturesOnPage.map((sig) => {
+                                        const isSelected = selectedSignatureId === sig.id;
+                                        return (
+                                            <div
+                                                key={sig.id}
+                                                className={`absolute group cursor-move ${isSelected ? 'z-20' : 'z-10'}`}
+                                                style={{
+                                                    left: `${sig.x}%`,
+                                                    top: `${sig.y}%`,
+                                                    width: `${sig.width}%`,
+                                                    height: `${sig.height}%`,
+                                                }}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    removeSignature(sig.id);
+                                                    setSelectedSignatureId(sig.id);
                                                 }}
-                                                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
                                             >
-                                                <Trash2 className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                    ))}
+                                                <img
+                                                    src={sig.image}
+                                                    alt="Signature"
+                                                    className="w-full h-full object-contain"
+                                                    draggable={false}
+                                                />
+
+                                                {/* Selection border - visible when selected or hovered */}
+                                                <div className={`absolute inset-0 border-2 ${isSelected ? 'border-blue-500' : 'border-transparent group-hover:border-blue-400'} pointer-events-none`} />
+
+                                                {/* Corner Resize Handles - Blue circles like Stirling PDF */}
+                                                {(isSelected || true) && (
+                                                    <>
+                                                        {/* Top-left */}
+                                                        <div
+                                                            className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-blue-500 rounded-full cursor-nw-resize opacity-0 group-hover:opacity-100 hover:scale-125 transition-all shadow-md"
+                                                            onMouseDown={(e) => handleResize(sig.id, 'top-left', e)}
+                                                        />
+                                                        {/* Top-right */}
+                                                        <div
+                                                            className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-blue-500 rounded-full cursor-ne-resize opacity-0 group-hover:opacity-100 hover:scale-125 transition-all shadow-md"
+                                                            onMouseDown={(e) => handleResize(sig.id, 'top-right', e)}
+                                                        />
+                                                        {/* Bottom-left */}
+                                                        <div
+                                                            className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-blue-500 rounded-full cursor-sw-resize opacity-0 group-hover:opacity-100 hover:scale-125 transition-all shadow-md"
+                                                            onMouseDown={(e) => handleResize(sig.id, 'bottom-left', e)}
+                                                        />
+                                                        {/* Bottom-right */}
+                                                        <div
+                                                            className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-blue-500 rounded-full cursor-se-resize opacity-0 group-hover:opacity-100 hover:scale-125 transition-all shadow-md"
+                                                            onMouseDown={(e) => handleResize(sig.id, 'bottom-right', e)}
+                                                        />
+                                                    </>
+                                                )}
+
+                                                {/* Delete button */}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        removeSignature(sig.id);
+                                                    }}
+                                                    className="absolute -top-3 -right-3 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-md hover:bg-red-600"
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
