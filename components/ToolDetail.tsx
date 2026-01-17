@@ -10,6 +10,7 @@ import * as api from '../services/api';
 import * as pdfClient from '../services/pdfClientUtils';
 import SignatureEditor, { SignatureData } from './SignatureEditor';
 import MergeEditor from './MergeEditor';
+import SplitEditor from './SplitEditor';
 
 // Types
 interface UploadedFile {
@@ -718,62 +719,28 @@ const ToolDetail: React.FC = () => {
         );
     };
 
-    const renderPdfSplit = () => (
-        <div className="space-y-6">
-            <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-lg mb-4">
-                {(['ranges', 'groups', 'size'] as const).map((m) => (
-                    <button
-                        key={m}
-                        onClick={() => setSplitMode(m)}
-                        className={`flex-1 py-1.5 text-sm font-medium rounded-md capitalize transition-all ${splitMode === m
-                            ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
-                            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                            }`}
-                    >
-                        By {m}
-                    </button>
-                ))}
-            </div>
+    const renderPdfSplit = () => {
+        if (uploadedFiles.length === 0) {
+            return (
+                <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Upload a PDF document to split it visually.
+                    </p>
+                </div>
+            );
+        }
 
-            {splitMode === 'ranges' && (
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Page Ranges</label>
-                    <input
-                        type="text"
-                        value={splitRanges}
-                        onChange={(e) => setSplitRanges(e.target.value)}
-                        placeholder="e.g. 1-5, 8, 11-13"
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
-                    />
-                    <p className="text-xs text-gray-500">Separates selected pages into new PDFs. Comma separated.</p>
-                </div>
-            )}
-            {splitMode === 'groups' && (
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Split every X pages</label>
-                    <input
-                        type="number"
-                        value={splitGroupSize}
-                        onChange={(e) => setSplitGroupSize(e.target.value)}
-                        placeholder="10"
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
-                    />
-                </div>
-            )}
-            {splitMode === 'size' && (
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Max File Size (MB)</label>
-                    <input
-                        type="number"
-                        value={splitFileSize}
-                        onChange={(e) => setSplitFileSize(e.target.value)}
-                        placeholder="10"
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
-                    />
-                </div>
-            )}
-        </div>
-    );
+        // Show full-screen SplitEditor when file is uploaded
+        return (
+            <SplitEditor
+                file={uploadedFiles[0].file}
+                onClose={() => {
+                    clearAllFiles();
+                    navigate(-1);
+                }}
+            />
+        );
+    };
 
     const renderPdfRotate = () => (
         <div className="space-y-4">
