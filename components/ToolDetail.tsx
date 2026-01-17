@@ -1065,33 +1065,12 @@ const ToolDetail: React.FC = () => {
         </div>
     );
 
-    // PDF Sign Handler - supports multiple signatures
-    const handleSignPdf = useCallback(async (signatureData: { signatures: SignatureData[] }) => {
-        if (uploadedFiles.length === 0) return;
-
-        setIsProcessing(true);
-        setError(null);
-        setProcessingMessage(`Signing PDF with ${signatureData.signatures.length} signature(s)...`);
-
-        try {
-            const result = await api.signPDFMultiple(
-                uploadedFiles[0].file,
-                signatureData.signatures
-            );
-
-            if (result.success && result.data) {
-                api.downloadBlob(result.data, result.filename || 'signed.pdf');
-                setSuccess('PDF signed successfully!');
-            } else {
-                throw new Error(result.error || 'Failed to sign PDF');
-            }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to sign PDF');
-        } finally {
-            setIsProcessing(false);
-            setProcessingMessage('');
-        }
-    }, [uploadedFiles]);
+    // PDF Sign Handler - now just updates UI state (download happens client-side in SignatureEditor)
+    const handleSignPdf = useCallback(async (_signatureData: { signatures: SignatureData[] }) => {
+        // SignatureEditor handles the actual signing and download client-side
+        // This callback just updates the UI state
+        setSuccess('PDF signed successfully!');
+    }, []);
 
     const renderPdfSign = () => {
         if (uploadedFiles.length === 0) {
