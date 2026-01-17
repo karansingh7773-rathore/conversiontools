@@ -1,12 +1,13 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
+import {
     ArrowLeft, Upload, Download, Loader2, AlertCircle,
-    Trash2, GripVertical, FileText, ArrowRight, RotateCw, 
+    Trash2, GripVertical, FileText, ArrowRight, RotateCw,
     MoveLeft, MoveRight, CheckCircle, Plus
 } from 'lucide-react';
 import { TOOLS } from '../constants';
 import * as api from '../services/api';
+import SignatureEditor, { SignatureData } from './SignatureEditor';
 
 // Types
 interface UploadedFile {
@@ -36,11 +37,11 @@ const ToolDetail: React.FC = () => {
     const [success, setSuccess] = useState<string | null>(null);
     const [processingProgress, setProcessingProgress] = useState(0);
     const [processingMessage, setProcessingMessage] = useState('');
-    
+
     // Input string states (for proper backspace handling)
     const [targetSizeMBInput, setTargetSizeMBInput] = useState('50');
     const [validationError, setValidationError] = useState<string | null>(null);
-    
+
     // Mock Pages for Rotate/Organize (will be populated from uploaded PDF)
     const [mockPages, setMockPages] = useState<PageInfo[]>(
         Array.from({ length: 8 }, (_, i) => ({ id: i, num: i + 1, rot: 0 }))
@@ -64,7 +65,7 @@ const ToolDetail: React.FC = () => {
     const [ocrDeskew, setOcrDeskew] = useState(true);
     const [ocrClean, setOcrClean] = useState(false);
     const [compressionQuality, setCompressionQuality] = useState<'low' | 'medium' | 'high'>('medium');
-    
+
     // Metadata state
     const [metaTitle, setMetaTitle] = useState('');
     const [metaAuthor, setMetaAuthor] = useState('');
@@ -76,7 +77,7 @@ const ToolDetail: React.FC = () => {
     const [watermarkText, setWatermarkText] = useState('');
     const [watermarkOpacity, setWatermarkOpacity] = useState(0.3);
     const [watermarkPosition, setWatermarkPosition] = useState('center');
-    
+
     // URL to PDF
     const [urlInput, setUrlInput] = useState('');
 
@@ -87,7 +88,7 @@ const ToolDetail: React.FC = () => {
     const [resizeMode, setResizeMode] = useState<'fit' | 'fill' | 'crop'>('fit');
     const [imageQuality, setImageQuality] = useState(80);
     const [imageFormat, setImageFormat] = useState<'webp' | 'avif' | 'jpeg' | 'png'>('webp');
-    
+
     // Video States
     const [compressionLevel, setCompressionLevel] = useState<'low' | 'medium' | 'high'>('medium');
     const [compressionMethod, setCompressionMethod] = useState<'preset' | 'target_size' | 'target_percentage' | 'target_quality' | 'target_resolution' | 'target_bitrate'>('preset');
@@ -104,7 +105,7 @@ const ToolDetail: React.FC = () => {
     const [gifFps, setGifFps] = useState(15);
     const [gifWidth, setGifWidth] = useState(480);
     const [gifDuration, setGifDuration] = useState(5);
-    
+
     // Audio States
     const [audioFormat, setAudioFormat] = useState('mp3');
     const [audioBitrate, setAudioBitrate] = useState('192k');
@@ -129,18 +130,18 @@ const ToolDetail: React.FC = () => {
     const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files) return;
-        
+
         const newFiles: UploadedFile[] = Array.from(files).map(file => ({
             id: crypto.randomUUID(),
             file,
             name: file.name,
             size: formatFileSize(file.size)
         }));
-        
+
         setUploadedFiles(prev => [...prev, ...newFiles]);
         setError(null);
         setSuccess(null);
-        
+
         // Reset input
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
@@ -150,14 +151,14 @@ const ToolDetail: React.FC = () => {
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         const files = e.dataTransfer.files;
-        
+
         const newFiles: UploadedFile[] = Array.from(files).map(file => ({
             id: crypto.randomUUID(),
             file,
             name: file.name,
             size: formatFileSize(file.size)
         }));
-        
+
         setUploadedFiles(prev => [...prev, ...newFiles]);
         setError(null);
         setSuccess(null);
@@ -193,7 +194,7 @@ const ToolDetail: React.FC = () => {
             progress = Math.min(progress, 95);
             setProcessingProgress(Math.round(progress));
         }, duration / 20);
-        
+
         return () => {
             clearInterval(interval);
             setProcessingProgress(100);
@@ -388,10 +389,10 @@ const ToolDetail: React.FC = () => {
                         throw new Error('Please enter a valid target size (minimum 1 MB)');
                     }
                     const finalTargetSizeMB = compressionMethod === 'target_size' ? parseFloat(targetSizeMBInput) || 50 : targetSizeMB;
-                    
+
                     setProcessingMessage(`Compressing ${files[0].name}...`);
                     const stopProgress = simulateProgress(30000); // Estimate 30 seconds for video
-                    
+
                     try {
                         result = await api.compressVideo(files[0], {
                             compressionMethod,
@@ -657,7 +658,7 @@ const ToolDetail: React.FC = () => {
                 <div className="flex justify-between items-center mb-2">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Files to Merge</label>
                     {uploadedFiles.length > 0 && (
-                        <button 
+                        <button
                             onClick={clearAllFiles}
                             className="text-xs text-primary font-bold hover:underline"
                         >
@@ -678,7 +679,7 @@ const ToolDetail: React.FC = () => {
                                     <p className="text-xs text-gray-500">{file.size}</p>
                                 </div>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => removeFile(file.id)}
                                 className="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                             >
@@ -701,14 +702,13 @@ const ToolDetail: React.FC = () => {
         <div className="space-y-6">
             <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-lg mb-4">
                 {(['ranges', 'groups', 'size'] as const).map((m) => (
-                    <button 
+                    <button
                         key={m}
                         onClick={() => setSplitMode(m)}
-                        className={`flex-1 py-1.5 text-sm font-medium rounded-md capitalize transition-all ${
-                            splitMode === m 
-                            ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' 
+                        className={`flex-1 py-1.5 text-sm font-medium rounded-md capitalize transition-all ${splitMode === m
+                            ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
                             : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                        }`}
+                            }`}
                     >
                         By {m}
                     </button>
@@ -718,12 +718,12 @@ const ToolDetail: React.FC = () => {
             {splitMode === 'ranges' && (
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Page Ranges</label>
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         value={splitRanges}
                         onChange={(e) => setSplitRanges(e.target.value)}
-                        placeholder="e.g. 1-5, 8, 11-13" 
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" 
+                        placeholder="e.g. 1-5, 8, 11-13"
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
                     />
                     <p className="text-xs text-gray-500">Separates selected pages into new PDFs. Comma separated.</p>
                 </div>
@@ -731,24 +731,24 @@ const ToolDetail: React.FC = () => {
             {splitMode === 'groups' && (
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Split every X pages</label>
-                    <input 
-                        type="number" 
+                    <input
+                        type="number"
                         value={splitGroupSize}
                         onChange={(e) => setSplitGroupSize(e.target.value)}
-                        placeholder="10" 
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" 
+                        placeholder="10"
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
                     />
                 </div>
             )}
             {splitMode === 'size' && (
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Max File Size (MB)</label>
-                    <input 
-                        type="number" 
+                    <input
+                        type="number"
                         value={splitFileSize}
                         onChange={(e) => setSplitFileSize(e.target.value)}
-                        placeholder="10" 
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" 
+                        placeholder="10"
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
                     />
                 </div>
             )}
@@ -763,18 +763,18 @@ const ToolDetail: React.FC = () => {
                     <RotateCw className="w-3 h-3" /> Rotate All
                 </button>
             </div>
-            
+
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-h-[400px] overflow-y-auto p-2 border border-gray-100 dark:border-gray-800 rounded-lg">
                 {mockPages.map((page) => (
                     <div key={page.id} className="relative group">
-                        <div 
+                        <div
                             className="bg-white border shadow-sm rounded-md flex flex-col items-center justify-center aspect-[3/4] transition-transform duration-300"
                             style={{ transform: `rotate(${page.rot}deg)` }}
                         >
                             <span className="text-2xl font-bold text-gray-200 select-none">{page.num}</span>
                         </div>
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 dark:group-hover:bg-white/5 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
-                            <button 
+                            <button
                                 onClick={() => rotatePage(page.id, 'cw')}
                                 className="p-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-full shadow-md hover:scale-110 transition-transform"
                             >
@@ -795,29 +795,29 @@ const ToolDetail: React.FC = () => {
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white">Drag & Drop Simulation</h3>
                 <span className="text-xs text-gray-500">{mockPages.length} pages total</span>
             </div>
-            
+
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[500px] overflow-y-auto p-2">
                 {mockPages.map((page, index) => (
                     <div key={page.id} className="relative group bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border border-transparent hover:border-gray-300 dark:hover:border-gray-600 transition-all">
                         <div className="bg-white border shadow-sm rounded flex flex-col items-center justify-center aspect-[3/4] mb-2">
                             <span className="text-2xl font-bold text-gray-200 select-none">{page.num}</span>
                         </div>
-                        
+
                         <div className="flex justify-between items-center px-1">
-                            <button 
+                            <button
                                 onClick={() => movePage(index, 'left')}
                                 disabled={index === 0}
                                 className="p-1 text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-30"
                             >
                                 <MoveLeft className="w-4 h-4" />
                             </button>
-                            <button 
+                            <button
                                 onClick={() => deletePage(page.id)}
                                 className="p-1 text-gray-400 hover:text-red-500"
                             >
                                 <Trash2 className="w-4 h-4" />
                             </button>
-                            <button 
+                            <button
                                 onClick={() => movePage(index, 'right')}
                                 disabled={index === mockPages.length - 1}
                                 className="p-1 text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-30"
@@ -844,25 +844,24 @@ const ToolDetail: React.FC = () => {
                         <button
                             key={opt.val}
                             onClick={() => setLayoutMode(opt.val)}
-                            className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
-                                layoutMode === opt.val
+                            className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${layoutMode === opt.val
                                 ? 'border-primary bg-red-50 dark:bg-red-900/20 text-primary'
                                 : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
-                            }`}
+                                }`}
                         >
                             <span className="text-xs font-bold">{opt.label}</span>
                         </button>
                     ))}
                 </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
-                <input 
-                    type="checkbox" 
-                    id="borders" 
+                <input
+                    type="checkbox"
+                    id="borders"
                     checked={borders}
                     onChange={(e) => setBorders(e.target.checked)}
-                    className="rounded text-primary focus:ring-primary" 
+                    className="rounded text-primary focus:ring-primary"
                 />
                 <label htmlFor="borders" className="text-sm text-gray-700 dark:text-gray-300">Draw borders around pages</label>
             </div>
@@ -873,12 +872,12 @@ const ToolDetail: React.FC = () => {
         <div className="space-y-2">
             <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Website URL</label>
             <div className="flex gap-2">
-                <input 
-                    type="text" 
+                <input
+                    type="text"
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
-                    placeholder="https://www.example.com" 
-                    className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" 
+                    placeholder="https://www.example.com"
+                    className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
                 />
             </div>
             <p className="text-xs text-gray-500">Captures the full page layout.</p>
@@ -889,31 +888,31 @@ const ToolDetail: React.FC = () => {
         <div className="space-y-6">
             <div className="space-y-2">
                 <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Password</label>
-                <input 
-                    type="password" 
+                <input
+                    type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter password to encrypt" 
-                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" 
+                    placeholder="Enter password to encrypt"
+                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
                 />
             </div>
             <div className="space-y-2">
                 <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Confirm Password</label>
-                <input 
-                    type="password" 
+                <input
+                    type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm password" 
-                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" 
+                    placeholder="Confirm password"
+                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
                 />
             </div>
             <div className="flex items-center gap-2">
-                <input 
-                    type="checkbox" 
-                    id="aes" 
+                <input
+                    type="checkbox"
+                    id="aes"
                     checked={useAes}
                     onChange={(e) => setUseAes(e.target.checked)}
-                    className="rounded text-primary focus:ring-primary" 
+                    className="rounded text-primary focus:ring-primary"
                 />
                 <label htmlFor="aes" className="text-sm text-gray-700 dark:text-gray-300">Use AES-256 Encryption (Recommended)</label>
             </div>
@@ -924,7 +923,7 @@ const ToolDetail: React.FC = () => {
         <div className="space-y-6">
             <div className="space-y-2">
                 <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Source Language</label>
-                <select 
+                <select
                     value={ocrLanguage}
                     onChange={(e) => setOcrLanguage(e.target.value)}
                     className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
@@ -939,22 +938,22 @@ const ToolDetail: React.FC = () => {
             </div>
             <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                    <input 
-                        type="checkbox" 
-                        id="deskew" 
+                    <input
+                        type="checkbox"
+                        id="deskew"
                         checked={ocrDeskew}
                         onChange={(e) => setOcrDeskew(e.target.checked)}
-                        className="rounded text-primary focus:ring-primary" 
+                        className="rounded text-primary focus:ring-primary"
                     />
                     <label htmlFor="deskew" className="text-sm text-gray-700 dark:text-gray-300">Auto-deskew (Straighten pages)</label>
                 </div>
                 <div className="flex items-center gap-2">
-                    <input 
-                        type="checkbox" 
-                        id="clean" 
+                    <input
+                        type="checkbox"
+                        id="clean"
                         checked={ocrClean}
                         onChange={(e) => setOcrClean(e.target.checked)}
-                        className="rounded text-primary focus:ring-primary" 
+                        className="rounded text-primary focus:ring-primary"
                     />
                     <label htmlFor="clean" className="text-sm text-gray-700 dark:text-gray-300">Clean background (Remove noise)</label>
                 </div>
@@ -973,12 +972,12 @@ const ToolDetail: React.FC = () => {
             ].map((field) => (
                 <div key={field.label} className="space-y-1">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">{field.label}</label>
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         value={field.value}
                         onChange={(e) => field.setter(e.target.value)}
                         placeholder={`Enter ${field.label}`}
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" 
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
                     />
                 </div>
             ))}
@@ -989,12 +988,12 @@ const ToolDetail: React.FC = () => {
         <div className="space-y-6">
             <div className="space-y-2">
                 <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Watermark Text</label>
-                <input 
-                    type="text" 
+                <input
+                    type="text"
                     value={watermarkText}
                     onChange={(e) => setWatermarkText(e.target.value)}
-                    placeholder="CONFIDENTIAL" 
-                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" 
+                    placeholder="CONFIDENTIAL"
+                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
                 />
             </div>
             <div className="space-y-2">
@@ -1002,19 +1001,19 @@ const ToolDetail: React.FC = () => {
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Opacity</label>
                     <span className="text-xs font-bold text-primary">{Math.round(watermarkOpacity * 100)}%</span>
                 </div>
-                <input 
-                    type="range" 
-                    min="0.1" 
-                    max="1" 
+                <input
+                    type="range"
+                    min="0.1"
+                    max="1"
                     step="0.1"
-                    value={watermarkOpacity} 
+                    value={watermarkOpacity}
                     onChange={(e) => setWatermarkOpacity(parseFloat(e.target.value))}
                     className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
                 />
             </div>
             <div className="space-y-2">
                 <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Position</label>
-                <select 
+                <select
                     value={watermarkPosition}
                     onChange={(e) => setWatermarkPosition(e.target.value)}
                     className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
@@ -1029,6 +1028,62 @@ const ToolDetail: React.FC = () => {
         </div>
     );
 
+    // PDF Sign Handler
+    const handleSignPdf = useCallback(async (signatureData: SignatureData) => {
+        if (uploadedFiles.length === 0) return;
+
+        setIsProcessing(true);
+        setError(null);
+        setProcessingMessage('Signing PDF...');
+
+        try {
+            const result = await api.signPDF(
+                uploadedFiles[0].file,
+                signatureData.signatureImage,
+                {
+                    page: signatureData.page,
+                    positionX: signatureData.positionX,
+                    positionY: signatureData.positionY,
+                    width: signatureData.width,
+                    height: signatureData.height
+                }
+            );
+
+            if (result.success && result.data) {
+                api.downloadBlob(result.data, result.filename || 'signed.pdf');
+                setSuccess('PDF signed successfully!');
+            } else {
+                throw new Error(result.error || 'Failed to sign PDF');
+            }
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to sign PDF');
+        } finally {
+            setIsProcessing(false);
+            setProcessingMessage('');
+        }
+    }, [uploadedFiles]);
+
+    const renderPdfSign = () => {
+        if (uploadedFiles.length === 0) {
+            return (
+                <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Upload a PDF document to start signing.
+                    </p>
+                </div>
+            );
+        }
+
+        return (
+            <SignatureEditor
+                file={uploadedFiles[0].file}
+                onSign={handleSignPdf}
+                isProcessing={isProcessing}
+            />
+        );
+    };
+
+
     const renderPdfCompress = () => (
         <div className="space-y-6">
             <div className="space-y-2">
@@ -1042,11 +1097,10 @@ const ToolDetail: React.FC = () => {
                         <button
                             key={opt.val}
                             onClick={() => setCompressionQuality(opt.val)}
-                            className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
-                                compressionQuality === opt.val
+                            className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${compressionQuality === opt.val
                                 ? 'border-primary bg-red-50 dark:bg-red-900/20 text-primary'
                                 : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
-                            }`}
+                                }`}
                         >
                             <span className="text-sm font-bold">{opt.label}</span>
                             <span className="text-[10px] text-gray-400">{opt.desc}</span>
@@ -1069,11 +1123,11 @@ const ToolDetail: React.FC = () => {
                             </div>
                             <div className="flex-1 p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md flex justify-between items-center">
                                 <span className="text-sm font-medium text-gray-900 dark:text-gray-200">{step}</span>
-                                <Trash2 
-                                    className="w-4 h-4 text-gray-400 cursor-pointer hover:text-red-500" 
+                                <Trash2
+                                    className="w-4 h-4 text-gray-400 cursor-pointer hover:text-red-500"
                                     onClick={() => {
                                         setPipelineSteps(prev => prev.filter((_, i) => i !== idx));
-                                    }} 
+                                    }}
                                 />
                             </div>
                             {idx < pipelineSteps.length - 1 && (
@@ -1091,7 +1145,7 @@ const ToolDetail: React.FC = () => {
                     <option>Compress</option>
                     <option>Encrypt</option>
                 </select>
-                <button 
+                <button
                     onClick={() => setPipelineSteps(prev => [...prev, 'New Step'])}
                     className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white font-bold rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-sm"
                 >
@@ -1107,30 +1161,30 @@ const ToolDetail: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Width</label>
-                    <input 
-                        type="number" 
-                        value={width} 
+                    <input
+                        type="number"
+                        value={width}
                         onChange={(e) => setWidth(parseInt(e.target.value) || 0)}
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" 
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
                     />
                 </div>
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Height</label>
-                    <input 
-                        type="number" 
-                        value={height} 
+                    <input
+                        type="number"
+                        value={height}
                         onChange={(e) => setHeight(parseInt(e.target.value) || 0)}
                         disabled={maintainRatio}
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none disabled:opacity-50" 
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none disabled:opacity-50"
                     />
                 </div>
             </div>
-            
+
             <div className="flex items-center space-x-2">
-                <input 
-                    type="checkbox" 
-                    id="ratio" 
-                    checked={maintainRatio} 
+                <input
+                    type="checkbox"
+                    id="ratio"
+                    checked={maintainRatio}
                     onChange={(e) => setMaintainRatio(e.target.checked)}
                     className="rounded text-primary focus:ring-primary"
                 />
@@ -1144,11 +1198,10 @@ const ToolDetail: React.FC = () => {
                         <button
                             key={mode}
                             onClick={() => setResizeMode(mode)}
-                            className={`p-2 rounded-lg border transition-all capitalize ${
-                                resizeMode === mode
+                            className={`p-2 rounded-lg border transition-all capitalize ${resizeMode === mode
                                 ? 'border-primary bg-red-50 dark:bg-red-900/20 text-primary'
                                 : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-                            }`}
+                                }`}
                         >
                             {mode}
                         </button>
@@ -1165,11 +1218,11 @@ const ToolDetail: React.FC = () => {
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Quality</label>
                     <span className="text-xs font-bold text-primary">{imageQuality}%</span>
                 </div>
-                <input 
-                    type="range" 
-                    min="1" 
-                    max="100" 
-                    value={imageQuality} 
+                <input
+                    type="range"
+                    min="1"
+                    max="100"
+                    value={imageQuality}
                     onChange={(e) => setImageQuality(parseInt(e.target.value))}
                     className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
                 />
@@ -1182,11 +1235,10 @@ const ToolDetail: React.FC = () => {
                         <button
                             key={fmt}
                             onClick={() => setImageFormat(fmt)}
-                            className={`p-2 rounded-lg border transition-all uppercase text-xs font-bold ${
-                                imageFormat === fmt
+                            className={`p-2 rounded-lg border transition-all uppercase text-xs font-bold ${imageFormat === fmt
                                 ? 'border-primary bg-red-50 dark:bg-red-900/20 text-primary'
                                 : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-                            }`}
+                                }`}
                         >
                             {fmt}
                         </button>
@@ -1201,8 +1253,8 @@ const ToolDetail: React.FC = () => {
             {/* Compression Method Selector */}
             <div className="space-y-2">
                 <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Compression Method</label>
-                <select 
-                    value={compressionMethod} 
+                <select
+                    value={compressionMethod}
                     onChange={(e) => setCompressionMethod(e.target.value as any)}
                     className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white"
                 >
@@ -1225,11 +1277,10 @@ const ToolDetail: React.FC = () => {
                             <button
                                 key={level}
                                 onClick={() => setCompressionLevel(level)}
-                                className={`px-4 py-3 rounded-md border text-center transition-all ${
-                                    compressionLevel === level 
-                                    ? 'border-primary bg-red-50 dark:bg-red-900/20 text-primary font-bold shadow-sm' 
+                                className={`px-4 py-3 rounded-md border text-center transition-all ${compressionLevel === level
+                                    ? 'border-primary bg-red-50 dark:bg-red-900/20 text-primary font-bold shadow-sm'
                                     : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-300'
-                                }`}
+                                    }`}
                             >
                                 <span className="capitalize block">{level}</span>
                                 <span className="text-[10px] text-gray-400 font-normal">
@@ -1245,10 +1296,10 @@ const ToolDetail: React.FC = () => {
             {compressionMethod === 'target_size' && (
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Target File Size (MB)</label>
-                    <input 
-                        type="number" 
+                    <input
+                        type="number"
                         min="1"
-                        value={targetSizeMBInput} 
+                        value={targetSizeMBInput}
                         onChange={(e) => {
                             setTargetSizeMBInput(e.target.value);
                             // Clear validation error when user types
@@ -1263,11 +1314,10 @@ const ToolDetail: React.FC = () => {
                                 setValidationError(null);
                             }
                         }}
-                        className={`w-full bg-gray-50 dark:bg-gray-800 border rounded-md px-3 py-2 ${
-                            validationError 
-                            ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
+                        className={`w-full bg-gray-50 dark:bg-gray-800 border rounded-md px-3 py-2 ${validationError
+                            ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
                             : 'border-gray-200 dark:border-gray-700'
-                        }`}
+                            }`}
                     />
                     {validationError && (
                         <p className="text-xs text-red-500 flex items-center gap-1">
@@ -1288,11 +1338,11 @@ const ToolDetail: React.FC = () => {
                         <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Target Size (% of original)</label>
                         <span className="text-xs font-bold text-primary">{targetPercentage}%</span>
                     </div>
-                    <input 
-                        type="range" 
-                        min="10" 
-                        max="100" 
-                        value={targetPercentage} 
+                    <input
+                        type="range"
+                        min="10"
+                        max="100"
+                        value={targetPercentage}
                         onChange={(e) => setTargetPercentage(parseInt(e.target.value))}
                         className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
                     />
@@ -1307,11 +1357,11 @@ const ToolDetail: React.FC = () => {
                         <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Quality (CRF)</label>
                         <span className="text-xs font-bold text-primary">{targetQuality}</span>
                     </div>
-                    <input 
-                        type="range" 
-                        min="18" 
-                        max="32" 
-                        value={targetQuality} 
+                    <input
+                        type="range"
+                        min="18"
+                        max="32"
+                        value={targetQuality}
                         onChange={(e) => setTargetQuality(parseInt(e.target.value))}
                         className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
                     />
@@ -1332,11 +1382,10 @@ const ToolDetail: React.FC = () => {
                             <button
                                 key={res}
                                 onClick={() => setVideoPreset(res as any)}
-                                className={`p-3 rounded-lg border text-center transition-all ${
-                                    videoPreset === res
+                                className={`p-3 rounded-lg border text-center transition-all ${videoPreset === res
                                     ? 'border-primary bg-teal-50 dark:bg-teal-900/20 text-primary font-bold'
                                     : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-                                }`}
+                                    }`}
                             >
                                 {res}
                             </button>
@@ -1349,7 +1398,7 @@ const ToolDetail: React.FC = () => {
             {compressionMethod === 'target_bitrate' && (
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Max Bitrate</label>
-                    <select 
+                    <select
                         className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2"
                     >
                         <option value="500k">500 kbps (Low)</option>
@@ -1363,9 +1412,9 @@ const ToolDetail: React.FC = () => {
 
             {/* Mute Audio Option */}
             <div className="flex items-center gap-2">
-                <input 
-                    type="checkbox" 
-                    id="mute" 
+                <input
+                    type="checkbox"
+                    id="mute"
                     checked={muteAudio}
                     onChange={(e) => setMuteAudio(e.target.checked)}
                     className="rounded text-primary focus:ring-primary"
@@ -1381,8 +1430,8 @@ const ToolDetail: React.FC = () => {
             <div className="flex justify-between items-end gap-4">
                 <div className="space-y-1 flex-1">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Start Time</label>
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         value={trimStart}
                         onChange={(e) => setTrimStart(e.target.value)}
                         placeholder="00:00:00"
@@ -1391,8 +1440,8 @@ const ToolDetail: React.FC = () => {
                 </div>
                 <div className="space-y-1 flex-1">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">End Time</label>
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         value={trimEnd}
                         onChange={(e) => setTrimEnd(e.target.value)}
                         placeholder="00:00:30"
@@ -1413,11 +1462,10 @@ const ToolDetail: React.FC = () => {
                         <button
                             key={fmt}
                             onClick={() => setVideoFormat(fmt)}
-                            className={`p-2 rounded-lg border uppercase text-xs font-bold transition-all ${
-                                videoFormat === fmt
+                            className={`p-2 rounded-lg border uppercase text-xs font-bold transition-all ${videoFormat === fmt
                                 ? 'border-primary bg-teal-50 dark:bg-teal-900/20 text-primary'
                                 : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-                            }`}
+                                }`}
                         >
                             {fmt}
                         </button>
@@ -1436,11 +1484,10 @@ const ToolDetail: React.FC = () => {
                         <button
                             key={preset}
                             onClick={() => setVideoPreset(preset)}
-                            className={`p-3 rounded-lg border text-center transition-all ${
-                                videoPreset === preset
+                            className={`p-3 rounded-lg border text-center transition-all ${videoPreset === preset
                                 ? 'border-primary bg-teal-50 dark:bg-teal-900/20 text-primary font-bold'
                                 : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-                            }`}
+                                }`}
                         >
                             <span className="block font-bold">{preset}</span>
                             <span className="text-[10px] text-gray-400">
@@ -1458,27 +1505,27 @@ const ToolDetail: React.FC = () => {
             <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">FPS</label>
-                    <input 
-                        type="number" 
-                        value={gifFps} 
+                    <input
+                        type="number"
+                        value={gifFps}
                         onChange={(e) => setGifFps(parseInt(e.target.value) || 15)}
                         className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2"
                     />
                 </div>
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Width</label>
-                    <input 
-                        type="number" 
-                        value={gifWidth} 
+                    <input
+                        type="number"
+                        value={gifWidth}
                         onChange={(e) => setGifWidth(parseInt(e.target.value) || 480)}
                         className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2"
                     />
                 </div>
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Duration (sec)</label>
-                    <input 
-                        type="number" 
-                        value={gifDuration} 
+                    <input
+                        type="number"
+                        value={gifDuration}
                         onChange={(e) => setGifDuration(parseInt(e.target.value) || 5)}
                         className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2"
                     />
@@ -1497,11 +1544,10 @@ const ToolDetail: React.FC = () => {
                         <button
                             key={fmt}
                             onClick={() => setAudioFormat(fmt)}
-                            className={`p-2 rounded-lg border uppercase text-xs font-bold transition-all ${
-                                audioFormat === fmt
+                            className={`p-2 rounded-lg border uppercase text-xs font-bold transition-all ${audioFormat === fmt
                                 ? 'border-primary bg-teal-50 dark:bg-teal-900/20 text-primary'
                                 : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-                            }`}
+                                }`}
                         >
                             {fmt}
                         </button>
@@ -1515,11 +1561,10 @@ const ToolDetail: React.FC = () => {
                         <button
                             key={br}
                             onClick={() => setAudioBitrate(br)}
-                            className={`p-2 rounded-lg border text-xs font-bold transition-all ${
-                                audioBitrate === br
+                            className={`p-2 rounded-lg border text-xs font-bold transition-all ${audioBitrate === br
                                 ? 'border-primary bg-teal-50 dark:bg-teal-900/20 text-primary'
                                 : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-                            }`}
+                                }`}
                         >
                             {br}
                         </button>
@@ -1536,12 +1581,12 @@ const ToolDetail: React.FC = () => {
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Playback Speed</label>
                     <span className="text-xs font-bold text-primary">{videoSpeed}x</span>
                 </div>
-                <input 
-                    type="range" 
-                    min="0.25" 
-                    max="4" 
+                <input
+                    type="range"
+                    min="0.25"
+                    max="4"
                     step="0.25"
-                    value={videoSpeed} 
+                    value={videoSpeed}
                     onChange={(e) => setVideoSpeed(parseFloat(e.target.value))}
                     className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
                 />
@@ -1569,11 +1614,10 @@ const ToolDetail: React.FC = () => {
                         <button
                             key={opt.value}
                             onClick={() => setVideoRotation(opt.value)}
-                            className={`p-3 rounded-lg border text-center transition-all ${
-                                videoRotation === opt.value
+                            className={`p-3 rounded-lg border text-center transition-all ${videoRotation === opt.value
                                 ? 'border-primary bg-teal-50 dark:bg-teal-900/20 text-primary font-bold'
                                 : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-                            }`}
+                                }`}
                         >
                             {opt.label}
                         </button>
@@ -1593,11 +1637,10 @@ const ToolDetail: React.FC = () => {
                         <button
                             key={fmt}
                             onClick={() => setAudioFormat(fmt)}
-                            className={`p-2 rounded-lg border uppercase text-xs font-bold transition-all ${
-                                audioFormat === fmt
+                            className={`p-2 rounded-lg border uppercase text-xs font-bold transition-all ${audioFormat === fmt
                                 ? 'border-primary bg-pink-50 dark:bg-pink-900/20 text-primary'
                                 : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-                            }`}
+                                }`}
                         >
                             {fmt}
                         </button>
@@ -1611,11 +1654,10 @@ const ToolDetail: React.FC = () => {
                         <button
                             key={br}
                             onClick={() => setAudioBitrate(br)}
-                            className={`p-2 rounded-lg border text-xs font-bold transition-all ${
-                                audioBitrate === br
+                            className={`p-2 rounded-lg border text-xs font-bold transition-all ${audioBitrate === br
                                 ? 'border-primary bg-pink-50 dark:bg-pink-900/20 text-primary'
                                 : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-                            }`}
+                                }`}
                         >
                             {br}
                         </button>
@@ -1634,11 +1676,10 @@ const ToolDetail: React.FC = () => {
                         <button
                             key={level}
                             onClick={() => setAudioQuality(level)}
-                            className={`px-4 py-3 rounded-md border text-center transition-all ${
-                                audioQuality === level 
-                                ? 'border-primary bg-pink-50 dark:bg-pink-900/20 text-primary font-bold' 
+                            className={`px-4 py-3 rounded-md border text-center transition-all ${audioQuality === level
+                                ? 'border-primary bg-pink-50 dark:bg-pink-900/20 text-primary font-bold'
                                 : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-                            }`}
+                                }`}
                         >
                             <span className="capitalize block">{level}</span>
                             <span className="text-[10px] text-gray-400 font-normal">
@@ -1657,8 +1698,8 @@ const ToolDetail: React.FC = () => {
             <div className="flex justify-between items-end gap-4">
                 <div className="space-y-1 flex-1">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Start Time</label>
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         value={trimStart}
                         onChange={(e) => setTrimStart(e.target.value)}
                         placeholder="00:00:00"
@@ -1667,8 +1708,8 @@ const ToolDetail: React.FC = () => {
                 </div>
                 <div className="space-y-1 flex-1">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">End Time</label>
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         value={trimEnd}
                         onChange={(e) => setTrimEnd(e.target.value)}
                         placeholder="00:00:30"
@@ -1686,12 +1727,12 @@ const ToolDetail: React.FC = () => {
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Volume Level</label>
                     <span className="text-xs font-bold text-primary">{(audioVolume * 100).toFixed(0)}%</span>
                 </div>
-                <input 
-                    type="range" 
-                    min="0" 
-                    max="3" 
+                <input
+                    type="range"
+                    min="0"
+                    max="3"
                     step="0.1"
-                    value={audioVolume} 
+                    value={audioVolume}
                     onChange={(e) => setAudioVolume(parseFloat(e.target.value))}
                     className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
                 />
@@ -1711,12 +1752,12 @@ const ToolDetail: React.FC = () => {
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Playback Speed</label>
                     <span className="text-xs font-bold text-primary">{audioSpeed}x</span>
                 </div>
-                <input 
-                    type="range" 
-                    min="0.5" 
-                    max="2" 
+                <input
+                    type="range"
+                    min="0.5"
+                    max="2"
                     step="0.1"
-                    value={audioSpeed} 
+                    value={audioSpeed}
                     onChange={(e) => setAudioSpeed(parseFloat(e.target.value))}
                     className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
                 />
@@ -1737,12 +1778,12 @@ const ToolDetail: React.FC = () => {
                         <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Fade In</label>
                         <span className="text-xs font-bold text-primary">{fadeIn}s</span>
                     </div>
-                    <input 
-                        type="range" 
-                        min="0" 
-                        max="10" 
+                    <input
+                        type="range"
+                        min="0"
+                        max="10"
                         step="0.5"
-                        value={fadeIn} 
+                        value={fadeIn}
                         onChange={(e) => setFadeIn(parseFloat(e.target.value))}
                         className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
                     />
@@ -1752,12 +1793,12 @@ const ToolDetail: React.FC = () => {
                         <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Fade Out</label>
                         <span className="text-xs font-bold text-primary">{fadeOut}s</span>
                     </div>
-                    <input 
-                        type="range" 
-                        min="0" 
-                        max="10" 
+                    <input
+                        type="range"
+                        min="0"
+                        max="10"
                         step="0.5"
-                        value={fadeOut} 
+                        value={fadeOut}
                         onChange={(e) => setFadeOut(parseFloat(e.target.value))}
                         className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
                     />
@@ -1787,7 +1828,8 @@ const ToolDetail: React.FC = () => {
         // PDF Security
         if (id === 'pdf-password') return renderPdfSecurity();
         if (id === 'pdf-watermark') return renderPdfWatermark();
-        
+        if (id === 'pdf-sign') return renderPdfSign();
+
         // PDF Advanced
         if (id === 'pdf-ocr') return renderPdfOcr();
         if (id === 'pdf-compress') return renderPdfCompress();
@@ -1797,7 +1839,7 @@ const ToolDetail: React.FC = () => {
         // Images
         if (id === 'img-resize') return renderImageResize();
         if (id === 'img-compress') return renderImageCompress();
-        
+
         // Video
         if (id === 'vid-compress') return renderVideoCompress();
         if (id === 'vid-trim') return renderVideoTrim();
@@ -1860,9 +1902,66 @@ const ToolDetail: React.FC = () => {
         return '*';
     })();
 
+    // PDF Sign uses full-width layout like Stirling PDF
+    const isFullWidthTool = id === 'pdf-sign';
+
+    // Special full-width layout for pdf-sign
+    if (isFullWidthTool && uploadedFiles.length > 0) {
+        return (
+            <div className="h-[calc(100vh-120px)] flex flex-col">
+                {/* Header */}
+                <div className="flex items-center gap-4 mb-4">
+                    <button
+                        onClick={() => navigate('/tools')}
+                        className="flex items-center space-x-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        <span className="font-bold text-sm">Back to Toolbox</span>
+                    </button>
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 dark:from-primary/30 dark:to-primary/20 flex items-center justify-center text-primary">
+                            <tool.icon className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-lg font-bold text-gray-900 dark:text-white">{tool.title}</h1>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                    {tool.badge}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex-1 min-h-0">
+                    <SignatureEditor
+                        file={uploadedFiles[0].file}
+                        onSign={handleSignPdf}
+                        isProcessing={isProcessing}
+                        onClose={() => navigate('/tools')}
+                    />
+                </div>
+
+                {/* Status messages */}
+                {error && (
+                    <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg flex items-center gap-2 text-red-700 dark:text-red-300">
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="text-sm">{error}</span>
+                    </div>
+                )}
+                {success && (
+                    <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg flex items-center gap-2 text-green-700 dark:text-green-300">
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="text-sm">{success}</span>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
     return (
-        <div className="max-w-3xl mx-auto">
-            <button 
+        <div className={isFullWidthTool ? "" : "max-w-3xl mx-auto"}>
+            <button
                 onClick={() => navigate('/tools')}
                 className="flex items-center space-x-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white mb-6 transition-colors"
             >
@@ -1893,15 +1992,15 @@ const ToolDetail: React.FC = () => {
                 <div className="p-6">
                     {/* File Upload Area */}
                     {needsFileUpload && uploadedFiles.length === 0 && (
-                        <div 
+                        <div
                             className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center hover:border-primary/50 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all cursor-pointer mb-8 group"
                             onClick={() => fileInputRef.current?.click()}
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={handleDrop}
                         >
-                            <input 
+                            <input
                                 ref={fileInputRef}
-                                type="file" 
+                                type="file"
                                 multiple
                                 accept={acceptedFileTypes}
                                 onChange={handleFileSelect}
@@ -1918,15 +2017,15 @@ const ToolDetail: React.FC = () => {
                     {/* Add more files button when files already uploaded */}
                     {needsFileUpload && uploadedFiles.length > 0 && (
                         <div className="mb-4">
-                            <button 
+                            <button
                                 onClick={() => fileInputRef.current?.click()}
                                 className="text-sm text-primary font-bold hover:underline flex items-center gap-1"
                             >
                                 <Plus className="w-4 h-4" /> Add more files
                             </button>
-                            <input 
+                            <input
                                 ref={fileInputRef}
-                                type="file" 
+                                type="file"
                                 multiple
                                 accept={acceptedFileTypes}
                                 onChange={handleFileSelect}
@@ -1942,7 +2041,7 @@ const ToolDetail: React.FC = () => {
                                 <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300">
                                     Uploaded Files ({uploadedFiles.length})
                                 </h4>
-                                <button 
+                                <button
                                     onClick={clearAllFiles}
                                     className="text-xs text-red-500 hover:text-red-600 font-medium"
                                 >
@@ -1951,8 +2050,8 @@ const ToolDetail: React.FC = () => {
                             </div>
                             <div className="space-y-2">
                                 {uploadedFiles.map((file) => (
-                                    <div 
-                                        key={file.id} 
+                                    <div
+                                        key={file.id}
                                         className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md"
                                     >
                                         <div className="flex items-center gap-3 min-w-0">
@@ -1974,7 +2073,7 @@ const ToolDetail: React.FC = () => {
                                                 <p className="text-xs text-gray-500">{file.size}</p>
                                             </div>
                                         </div>
-                                        <button 
+                                        <button
                                             onClick={() => removeFile(file.id)}
                                             className="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
                                         >
@@ -2013,7 +2112,7 @@ const ToolDetail: React.FC = () => {
                                 <span className="text-blue-600 dark:text-blue-400 font-bold">{processingProgress}%</span>
                             </div>
                             <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2 overflow-hidden">
-                                <div 
+                                <div
                                     className="h-full bg-blue-600 dark:bg-blue-500 transition-all duration-300 ease-out"
                                     style={{ width: `${processingProgress}%` }}
                                 />
@@ -2024,13 +2123,13 @@ const ToolDetail: React.FC = () => {
                     {/* Action Bar */}
                     <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
                         <span className="text-xs text-gray-500 mr-auto">Processed securely on server</span>
-                        <button 
+                        <button
                             onClick={clearAllFiles}
                             className="px-4 py-2 text-sm font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
                         >
                             Reset
                         </button>
-                        <button 
+                        <button
                             onClick={handleProcess}
                             disabled={isProcessing || (needsFileUpload && uploadedFiles.length === 0 && id !== 'url-to-pdf')}
                             className="px-6 py-2 bg-primary hover:bg-red-600 text-white font-bold rounded-md shadow-sm hover:shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"

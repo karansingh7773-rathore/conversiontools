@@ -5,9 +5,9 @@
 
 // Base URL - Update this when deploying
 // For HF Spaces, the API is at the root of your Space URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 
-    (import.meta.env.PROD 
-        ? 'https://karansinghrathore820-myvirtualmachine.hf.space' 
+const API_BASE_URL = import.meta.env.VITE_API_URL ||
+    (import.meta.env.PROD
+        ? 'https://karansinghrathore820-myvirtualmachine.hf.space'
         : 'http://localhost:7860');
 
 interface ApiResponse {
@@ -27,45 +27,45 @@ async function uploadFiles(
     fileFieldName: string = 'files'
 ): Promise<ApiResponse> {
     const formData = new FormData();
-    
+
     // Add files
     files.forEach(file => {
         formData.append(fileFieldName, file);
     });
-    
+
     // Add additional form data
     if (additionalData) {
         Object.entries(additionalData).forEach(([key, value]) => {
             formData.append(key, String(value));
         });
     }
-    
+
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             method: 'POST',
             body: formData,
         });
-        
+
         if (!response.ok) {
             const errorText = await response.text();
             throw new Error(errorText || `HTTP ${response.status}`);
         }
-        
+
         const blob = await response.blob();
         const contentDisposition = response.headers.get('Content-Disposition');
         let filename = 'download';
-        
+
         if (contentDisposition) {
             const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
             if (match) filename = match[1];
         }
-        
+
         return { success: true, data: blob, filename };
     } catch (error) {
         console.error(`API Error (${endpoint}):`, error);
-        return { 
-            success: false, 
-            error: error instanceof Error ? error.message : 'Unknown error' 
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
         };
     }
 }
@@ -96,11 +96,11 @@ export async function splitPDF(
     options: { ranges?: string; groupSize?: number; maxSizeMb?: number }
 ): Promise<ApiResponse> {
     const formData: Record<string, string | number | boolean> = { mode };
-    
+
     if (options.ranges) formData.ranges = options.ranges;
     if (options.groupSize) formData.group_size = options.groupSize;
     if (options.maxSizeMb) formData.max_size_mb = options.maxSizeMb;
-    
+
     return uploadFiles('/api/pdf/split', [file], formData, 'file');
 }
 
@@ -108,10 +108,10 @@ export async function rotatePDF(
     file: File,
     rotations: Record<number, number> | string
 ): Promise<ApiResponse> {
-    const rotationsStr = typeof rotations === 'string' 
-        ? rotations 
+    const rotationsStr = typeof rotations === 'string'
+        ? rotations
         : JSON.stringify(rotations);
-    
+
     return uploadFiles('/api/pdf/rotate', [file], { rotations: rotationsStr }, 'file');
 }
 
@@ -123,11 +123,11 @@ export async function organizePDF(
     const data: Record<string, string> = {
         page_order: pageOrder.join(',')
     };
-    
+
     if (deletePages && deletePages.length > 0) {
         data.delete_pages = deletePages.join(',');
     }
-    
+
     return uploadFiles('/api/pdf/organize', [file], data, 'file');
 }
 
@@ -173,20 +173,20 @@ export async function addPDFWatermark(
 ): Promise<ApiResponse> {
     const formData = new FormData();
     formData.append('file', file);
-    
+
     if (options.text) formData.append('text', options.text);
     if (options.opacity) formData.append('opacity', String(options.opacity));
     if (options.position) formData.append('position', options.position);
     if (options.watermarkImage) formData.append('watermark_image', options.watermarkImage);
-    
+
     try {
         const response = await fetch(`${API_BASE_URL}/api/pdf/watermark`, {
             method: 'POST',
             body: formData,
         });
-        
+
         if (!response.ok) throw new Error(await response.text());
-        
+
         const blob = await response.blob();
         return { success: true, data: blob, filename: 'watermarked.pdf' };
     } catch (error) {
@@ -239,14 +239,14 @@ export async function urlToPDF(url: string): Promise<ApiResponse> {
     try {
         const formData = new FormData();
         formData.append('url', url);
-        
+
         const response = await fetch(`${API_BASE_URL}/api/pdf/url-to-pdf`, {
             method: 'POST',
             body: formData,
         });
-        
+
         if (!response.ok) throw new Error(await response.text());
-        
+
         const blob = await response.blob();
         return { success: true, data: blob, filename: 'webpage.pdf' };
     } catch (error) {
@@ -276,17 +276,57 @@ export async function comparePDFs(file1: File, file2: File): Promise<ApiResponse
     const formData = new FormData();
     formData.append('file1', file1);
     formData.append('file2', file2);
-    
+
     try {
         const response = await fetch(`${API_BASE_URL}/api/pdf/compare`, {
             method: 'POST',
             body: formData,
         });
-        
+
         if (!response.ok) throw new Error(await response.text());
-        
+
         const blob = await response.blob();
         return { success: true, data: blob, filename: 'comparison.pdf' };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+export async function signPDF(
+    file: File,
+    signatureImage: string, // base64 data URL
+    options: {
+        page: number;
+        positionX: number; // percentage 0-100
+        positionY: number; // percentage 0-100
+        width: number;     // percentage of page width
+        height: number;    // percentage of page height
+    }
+): Promise<ApiResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // Convert base64 data URL to Blob
+    const res = await fetch(signatureImage);
+    const signatureBlob = await res.blob();
+    formData.append('signature_image', signatureBlob, 'signature.png');
+
+    formData.append('page', String(options.page));
+    formData.append('position_x', String(options.positionX));
+    formData.append('position_y', String(options.positionY));
+    formData.append('width', String(options.width));
+    formData.append('height', String(options.height));
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/pdf/sign`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) throw new Error(await response.text());
+
+        const blob = await response.blob();
+        return { success: true, data: blob, filename: 'signed.pdf' };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
@@ -343,14 +383,14 @@ export async function compressVideo(
         compression_method: options.compressionMethod || 'preset',
         mute_audio: options.muteAudio ?? false
     };
-    
+
     if (options.compressionLevel) formData.compression_level = options.compressionLevel;
     if (options.targetSizeMB) formData.target_size_mb = options.targetSizeMB;
     if (options.targetPercentage) formData.target_percentage = options.targetPercentage;
     if (options.targetQuality) formData.target_quality = options.targetQuality;
     if (options.targetResolution) formData.target_resolution = options.targetResolution;
     if (options.targetBitrate) formData.target_bitrate = options.targetBitrate;
-    
+
     return uploadFiles('/api/video/compress', [file], formData, 'file');
 }
 
@@ -448,15 +488,15 @@ export async function addVideoWatermark(
     formData.append('position', options.position || 'bottomright');
     formData.append('opacity', String(options.opacity || 0.7));
     formData.append('scale', String(options.scale || 0.15));
-    
+
     try {
         const response = await fetch(`${API_BASE_URL}/api/video/watermark`, {
             method: 'POST',
             body: formData,
         });
-        
+
         if (!response.ok) throw new Error(await response.text());
-        
+
         const blob = await response.blob();
         return { success: true, data: blob, filename: 'watermarked.mp4' };
     } catch (error) {
@@ -481,15 +521,15 @@ export async function addAudioToVideo(
     formData.append('video', videoFile);
     formData.append('audio', audioFile);
     formData.append('replace', String(replace));
-    
+
     try {
         const response = await fetch(`${API_BASE_URL}/api/video/add-audio`, {
             method: 'POST',
             body: formData,
         });
-        
+
         if (!response.ok) throw new Error(await response.text());
-        
+
         const blob = await response.blob();
         return { success: true, data: blob, filename: 'video_with_audio.mp4' };
     } catch (error) {
@@ -521,7 +561,7 @@ export async function convertAudio(
         bitrate
     };
     if (sampleRate) data.sample_rate = sampleRate;
-    
+
     return uploadFiles('/api/audio/convert', [file], data, 'file');
 }
 
