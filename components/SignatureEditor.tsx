@@ -15,7 +15,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/b
 // Types
 interface SignatureEditorProps {
     file: File;
-    onSign: (data: SignatureData) => Promise<void>;
+    onSign: (data: { signatures: SignatureData[] }) => Promise<void>;
     isProcessing: boolean;
     onClose?: () => void;
 }
@@ -228,22 +228,22 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
     };
 
     const handleApplySignatures = async () => {
-        const signaturesOnCurrentPage = placedSignatures.filter(s => s.page === currentPage);
-
-        if (signaturesOnCurrentPage.length === 0) {
-            alert('No signatures placed on the current page');
+        // Send ALL placed signatures across ALL pages
+        if (placedSignatures.length === 0) {
+            alert('No signatures placed on the PDF');
             return;
         }
 
-        const sig = signaturesOnCurrentPage[0];
-
+        // Send all signatures as an array
         await onSign({
-            signatureImage: sig.image,
-            page: sig.page,
-            positionX: sig.x,
-            positionY: sig.y,
-            width: sig.width,
-            height: sig.height
+            signatures: placedSignatures.map(sig => ({
+                signatureImage: sig.image,
+                page: sig.page,
+                positionX: sig.x,
+                positionY: sig.y,
+                width: sig.width,
+                height: sig.height
+            }))
         });
     };
 
@@ -473,12 +473,12 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
 
                                 {/* Info Box - Highlight when signature is ready */}
                                 <div className={`p-3 rounded-lg transition-all ${signatureReady
-                                        ? 'bg-green-50 dark:bg-green-900/30 border-2 border-green-400 dark:border-green-500 animate-pulse'
-                                        : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+                                    ? 'bg-green-50 dark:bg-green-900/30 border-2 border-green-400 dark:border-green-500 animate-pulse'
+                                    : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
                                     }`}>
                                     <h5 className={`text-xs font-medium mb-1 ${signatureReady
-                                            ? 'text-green-700 dark:text-green-400'
-                                            : 'text-orange-600 dark:text-orange-400'
+                                        ? 'text-green-700 dark:text-green-400'
+                                        : 'text-orange-600 dark:text-orange-400'
                                         }`}>
                                         {signatureReady ? '✓ Signature ready!' : 'How to add signature'}
                                     </h5>

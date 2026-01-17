@@ -330,6 +330,39 @@ export async function signPDF(
     }
 }
 
+// Sign PDF with multiple signatures in a single request
+export async function signPDFMultiple(
+    file: File,
+    signatures: Array<{
+        signatureImage: string;
+        page: number;
+        positionX: number;
+        positionY: number;
+        width: number;
+        height: number;
+    }>
+): Promise<ApiResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // Send all signatures as JSON string
+    formData.append('signatures', JSON.stringify(signatures));
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/pdf/sign-multiple`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) throw new Error(await response.text());
+
+        const blob = await response.blob();
+        return { success: true, data: blob, filename: 'signed.pdf' };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
 // ============== IMAGE PROCESSING ==============
 
 export async function resizeImage(

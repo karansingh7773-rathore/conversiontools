@@ -1028,25 +1028,18 @@ const ToolDetail: React.FC = () => {
         </div>
     );
 
-    // PDF Sign Handler
-    const handleSignPdf = useCallback(async (signatureData: SignatureData) => {
+    // PDF Sign Handler - supports multiple signatures
+    const handleSignPdf = useCallback(async (signatureData: { signatures: SignatureData[] }) => {
         if (uploadedFiles.length === 0) return;
 
         setIsProcessing(true);
         setError(null);
-        setProcessingMessage('Signing PDF...');
+        setProcessingMessage(`Signing PDF with ${signatureData.signatures.length} signature(s)...`);
 
         try {
-            const result = await api.signPDF(
+            const result = await api.signPDFMultiple(
                 uploadedFiles[0].file,
-                signatureData.signatureImage,
-                {
-                    page: signatureData.page,
-                    positionX: signatureData.positionX,
-                    positionY: signatureData.positionY,
-                    width: signatureData.width,
-                    height: signatureData.height
-                }
+                signatureData.signatures
             );
 
             if (result.success && result.data) {
