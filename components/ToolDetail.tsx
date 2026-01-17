@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { TOOLS } from '../constants';
 import * as api from '../services/api';
+import * as pdfClient from '../services/pdfClientUtils';
 import SignatureEditor, { SignatureData } from './SignatureEditor';
 
 // Types
@@ -254,34 +255,66 @@ const ToolDetail: React.FC = () => {
             const files = uploadedFiles.map(f => f.file);
 
             switch (id) {
-                // PDF Page Ops
-                case 'pdf-merge':
+                // PDF Page Ops - CLIENT-SIDE (INSTANT!)
+                case 'pdf-merge': {
                     if (files.length < 2) throw new Error('Please upload at least 2 PDF files');
-                    result = await api.mergePDFs(files);
+                    setProcessingMessage('Merging PDFs... (processing locally)');
+                    const mergedBlob = await pdfClient.mergePdfs(files);
+                    pdfClient.downloadBlob(mergedBlob, 'merged.pdf');
+                    result = { success: true };
                     break;
+                }
 
-                case 'pdf-split':
+                case 'pdf-split': {
                     if (files.length === 0) throw new Error('Please upload a PDF file');
-                    result = await api.splitPDF(files[0], splitMode, {
-                        ranges: splitRanges,
-                        groupSize: splitGroupSize ? parseInt(splitGroupSize) : undefined,
-                        maxSizeMb: splitFileSize ? parseFloat(splitFileSize) : undefined
-                    });
+                    setProcessingMessage('Splitting PDF... (processing locally)');
+                    let splitFiles;
+                    if (splitMode === 'every') {
+                        splitFiles = await pdfClient.splitPdf(files[0], {
+                            mode: 'every',
+                            everyN: splitGroupSize ? parseInt(splitGroupSize) : 1
+                        });
+                    } else if (splitMode === 'ranges' && splitRanges) {
+                        splitFiles = await pdfClient.splitPdf(files[0], {
+                            mode: 'range',
+                            ranges: splitRanges
+                        });
+                    } else {
+                        splitFiles = await pdfClient.splitPdf(files[0], { mode: 'all' });
+                    }
+                    await pdfClient.downloadMultiple(splitFiles);
+                    result = { success: true };
                     break;
+                }
 
-                case 'pdf-rotate':
+                case 'pdf-rotate': {
                     if (files.length === 0) throw new Error('Please upload a PDF file');
-                    const rotations: Record<number, number> = {};
-                    mockPages.forEach(p => {
-                        if (p.rot !== 0) rotations[p.num] = p.rot;
-                    });
-                    result = await api.rotatePDF(files[0], Object.keys(rotations).length > 0 ? rotations : 'all:0');
-                    break;
+                    setProcessingMessage('Rotating PDF... (processing locally)');
+                    // Get rotation angle from first rotated page (or default 90)
+                    const firstRotated = mockPages.find(p => p.rot !== 0);
+                    const angle = (firstRotated?.rot || 90) as pdfClient.RotationAngle;
 
-                case 'pdf-organize':
-                    if (files.length === 0) throw new Error('Please upload a PDF file');
-                    result = await api.organizePDF(files[0], mockPages.map(p => p.num));
+                    // Get pages with rotation
+                    const pagesToRotate = mockPages.filter(p => p.rot !== 0).map(p => p.num);
+                    const rotatedBlob = await pdfClient.rotatePdf(
+                        files[0],
+                        angle,
+                        pagesToRotate.length > 0 ? pagesToRotate : undefined
+                    );
+                    pdfClient.downloadBlob(rotatedBlob, `${files[0].name.replace(/\.pdf$/i, '')}_rotated.pdf`);
+                    result = { success: true };
                     break;
+                }
+
+                case 'pdf-organize': {
+                    if (files.length === 0) throw new Error('Please upload a PDF file');
+                    setProcessingMessage('Organizing PDF... (processing locally)');
+                    const newOrder = mockPages.map(p => p.num);
+                    const organizedBlob = await pdfClient.reorderPages(files[0], newOrder);
+                    pdfClient.downloadBlob(organizedBlob, `${files[0].name.replace(/\.pdf$/i, '')}_organized.pdf`);
+                    result = { success: true };
+                    break;
+                }
 
                 case 'pdf-layout':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
@@ -296,15 +329,19 @@ const ToolDetail: React.FC = () => {
                     result = await api.addPDFPassword(files[0], password, useAes);
                     break;
 
-                case 'pdf-watermark':
+                case 'pdf-watermark': {
                     if (files.length === 0) throw new Error('Please upload a PDF file');
                     if (!watermarkText) throw new Error('Please enter watermark text');
-                    result = await api.addPDFWatermark(files[0], {
+                    setProcessingMessage('Adding watermark... (processing locally)');
+                    const watermarkedBlob = await pdfClient.addWatermark(files[0], {
                         text: watermarkText,
                         opacity: watermarkOpacity,
-                        position: watermarkPosition
+                        position: watermarkPosition as 'center' | 'diagonal' | 'top' | 'bottom'
                     });
+                    pdfClient.downloadBlob(watermarkedBlob, `${files[0].name.replace(/\.pdf$/i, '')}_watermarked.pdf`);
+                    result = { success: true };
                     break;
+                }
 
                 case 'pdf-metadata':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
