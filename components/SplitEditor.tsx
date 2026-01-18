@@ -155,7 +155,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
     const groups = getSplitGroups();
 
     return (
-        <div className="fixed inset-0 z-50 bg-gray-100 dark:bg-[#0B1416] flex flex-col">
+        <div className="fixed inset-0 z-50 bg-gray-100 dark:bg-[#171717] flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1A1A1B] border-b border-gray-200 dark:border-[#343536]">
                 <div className="flex items-center gap-4">
