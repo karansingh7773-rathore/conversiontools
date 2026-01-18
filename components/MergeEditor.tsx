@@ -72,6 +72,55 @@ const MergeEditor: React.FC<MergeEditorProps> = ({ files: initialFiles, onClose 
         };
     }, []);
 
+    // Wheel zoom handler (Ctrl+scroll or pinch)
+    useEffect(() => {
+        const container = previewContainerRef.current;
+        if (!container) return;
+
+        let lastTouchDistance = 0;
+
+        const handleWheel = (e: WheelEvent) => {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                setPreviewScale(prev => Math.max(0.25, Math.min(3, prev + delta)));
+            }
+        };
+
+        const handleTouchStart = (e: TouchEvent) => {
+            if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                lastTouchDistance = Math.sqrt(dx * dx + dy * dy);
+            }
+        };
+
+        const handleTouchMove = (e: TouchEvent) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (lastTouchDistance > 0) {
+                    const scale = distance / lastTouchDistance;
+                    setPreviewScale(prev => Math.max(0.25, Math.min(3, prev * scale)));
+                }
+                lastTouchDistance = distance;
+            }
+        };
+
+        container.addEventListener('wheel', handleWheel, { passive: false });
+        container.addEventListener('touchstart', handleTouchStart, { passive: true });
+        container.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+        return () => {
+            container.removeEventListener('wheel', handleWheel);
+            container.removeEventListener('touchstart', handleTouchStart);
+            container.removeEventListener('touchmove', handleTouchMove);
+        };
+    }, []);
+
     // Add more files
     const handleAddFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const newFiles = e.target.files;
