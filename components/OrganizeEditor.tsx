@@ -311,6 +311,16 @@ const OrganizeEditor: React.FC<OrganizeEditorProps> = ({ files, onClose, onAddMo
             {/* Desktop Toolbar */}
             {!isMobile && (
                 <div className="px-6 py-3 bg-gray-50 dark:bg-[#1A1A1B] border-b border-gray-200 dark:border-[#343536] flex items-center gap-4">
+                    {/* Add More PDFs button */}
+                    {onAddMoreFiles && (
+                        <button
+                            onClick={onAddMoreFiles}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm hover:bg-blue-200 dark:hover:bg-blue-800/40"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Add More PDFs
+                        </button>
+                    )}
                     <button
                         onClick={toggleSelectAll}
                         className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-200 dark:hover:bg-[#343536] rounded-lg text-sm"

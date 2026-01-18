@@ -41,6 +41,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
     const [hoveredGap, setHoveredGap] = useState<number | null>(null);
     const [thumbnailSize, setThumbnailSize] = useState<number>(150);
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedFiles, setSelectedFiles] = useState<number[]>([]); // Selected file indices for download
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Initialize PDF
@@ -119,12 +120,36 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
     // Clear all splits
     const clearAllSplits = () => {
         setSplitPoints([]);
+        setSelectedFiles([]); // Clear selection when splits cleared
+    };
+
+    // Toggle file selection for download
+    const toggleFileSelection = (idx: number) => {
+        setSelectedFiles(prev => {
+            if (prev.includes(idx)) {
+                return prev.filter(i => i !== idx);
+            } else {
+                return [...prev, idx];
+            }
+        });
+    };
+
+    // Select all files
+    const selectAllFiles = () => {
+        const groups = getSplitGroups();
+        setSelectedFiles(groups.map((_, idx) => idx));
+    };
+
+    // Clear file selection
+    const clearSelection = () => {
+        setSelectedFiles([]);
     };
 
     // Split into single pages
     const splitIntoSinglePages = () => {
         const allSplits = Array.from({ length: numPages - 1 }, (_, i) => i + 1);
         setSplitPoints(allSplits);
+        setSelectedFiles([]); // Clear selection when splits change
     };
 
     // Handle split and download
@@ -200,23 +225,81 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
                 </div>
             </div>
 
-            {/* Split Groups Summary */}
+            {/* Split Groups Summary - Clickable for selection */}
             {splitPoints.length > 0 && (
-                <div className="px-6 py-3 bg-gray-50 dark:bg-[#1A1A1B] border-b border-gray-200 dark:border-[#343536] flex items-center gap-4 overflow-x-auto">
-                    <span className="text-sm font-medium text-gray-500 flex-shrink-0">Result:</span>
-                    {groups.map((group, idx) => (
-                        <div
-                            key={idx}
-                            className={`px-3 py-1.5 rounded-lg border-2 flex-shrink-0 ${group.color.replace('bg-', 'bg-').replace('border-', 'border-')}`}
-                        >
-                            <span className="text-sm font-medium">
-                                File {idx + 1}: {group.startPage === group.endPage
-                                    ? `Page ${group.startPage}`
-                                    : `Pages ${group.startPage}-${group.endPage}`}
-                                ({group.endPage - group.startPage + 1} pages)
-                            </span>
+                <div className="px-4 py-3 bg-gray-50 dark:bg-[#1A1A1B] border-b border-gray-200 dark:border-[#343536]">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                            Select files to download (tap to select):
+                        </span>
+                        <div className="flex gap-2">
+                            {selectedFiles.length > 0 && (
+                                <button
+                                    onClick={clearSelection}
+                                    className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                                >
+                                    Clear Selection
+                                </button>
+                            )}
+                            <button
+                                onClick={selectAllFiles}
+                                className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                            >
+                                Select All
+                            </button>
                         </div>
-                    ))}
+                    </div>
+                    <div className="flex items-center gap-3 overflow-x-auto pb-2">
+                        {groups.map((group, idx) => {
+                            const isSelected = selectedFiles.includes(idx);
+                            return (
+                                <button
+                                    key={idx}
+                                    onClick={() => toggleFileSelection(idx)}
+                                    className={`px-3 py-2 rounded-lg border-2 flex-shrink-0 transition-all ${isSelected
+                                            ? 'ring-2 ring-offset-1 ring-blue-500 border-blue-500 bg-blue-100 dark:bg-blue-900/30'
+                                            : group.color
+                                        }`}
+                                >
+                                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                                        {isSelected && '✓ '}File {idx + 1}
+                                    </span>
+                                    <span className="text-xs text-gray-700 dark:text-gray-300 block">
+                                        {group.startPage === group.endPage
+                                            ? `Page ${group.startPage}`
+                                            : `Pages ${group.startPage}-${group.endPage}`}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {/* Download options */}
+                    {selectedFiles.length > 0 && selectedFiles.length < groups.length && (
+                        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 flex gap-2">
+                            <button
+                                onClick={async () => {
+                                    setIsProcessing(true);
+                                    try {
+                                        const selectedGroups = groups.filter((_, idx) => selectedFiles.includes(idx));
+                                        const ranges = selectedGroups.map(g =>
+                                            g.startPage === g.endPage ? `${g.startPage}` : `${g.startPage}-${g.endPage}`
+                                        ).join(',');
+                                        const splitFiles = await splitPdf(file, { mode: 'range', ranges });
+                                        await downloadMultiple(splitFiles);
+                                    } catch (error) {
+                                        console.error('Split failed:', error);
+                                        alert('Failed to split PDF');
+                                    } finally {
+                                        setIsProcessing(false);
+                                    }
+                                }}
+                                disabled={isProcessing}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                Download {selectedFiles.length} Selected
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 
