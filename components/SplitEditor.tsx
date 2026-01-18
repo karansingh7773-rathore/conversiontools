@@ -155,13 +155,13 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
     const groups = getSplitGroups();
 
     return (
-        <div className="fixed inset-0 z-50 bg-gray-100 dark:bg-gray-900 flex flex-col">
+        <div className="fixed inset-0 z-50 bg-gray-100 dark:bg-[#32383D] flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#3D444A] border-b border-gray-200 dark:border-[#4C555C]">
                 <div className="flex items-center gap-4">
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-[#4C555C] rounded-lg transition-colors"
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -172,14 +172,14 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
                     <button
                         onClick={clearAllSplits}
                         disabled={splitPoints.length === 0}
-                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-30"
+                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-[#4C555C] rounded-lg disabled:opacity-30"
                     >
                         Clear Splits
                     </button>
                     <button
                         onClick={handleSplit}
                         disabled={isProcessing || splitPoints.length === 0}
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         {isProcessing ? (
                             <>
@@ -198,7 +198,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
 
             {/* Split Groups Summary */}
             {splitPoints.length > 0 && (
-                <div className="px-6 py-3 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 flex items-center gap-4 overflow-x-auto">
+                <div className="px-6 py-3 bg-gray-50 dark:bg-[#3D444A] border-b border-gray-200 dark:border-[#4C555C] flex items-center gap-4 overflow-x-auto">
                     <span className="text-sm font-medium text-gray-500 flex-shrink-0">Result:</span>
                     {groups.map((group, idx) => (
                         <div
@@ -217,15 +217,15 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
             )}
 
             {/* Instructions */}
-            <div className="px-6 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 text-sm">
+            <div className="px-6 py-2 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-red-700 dark:text-red-300 text-sm">
                     <Scissors className="w-4 h-4" />
                     <span>Click between pages to add split points. Each split creates a separate PDF file.</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={splitIntoSinglePages}
-                        className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200"
+                        className="text-xs px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded hover:bg-red-200"
                     >
                         Split All (Every Page)
                     </button>
@@ -297,8 +297,8 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
                                                 className={`relative flex items-center justify-center cursor-pointer transition-all ${hasSplit
                                                     ? 'w-6 bg-red-500'
                                                     : isHovered
-                                                        ? 'w-4 bg-blue-300 dark:bg-blue-600'
-                                                        : 'w-2 bg-gray-300 dark:bg-gray-600 hover:bg-blue-200'
+                                                        ? 'w-4 bg-red-300 dark:bg-red-600'
+                                                        : 'w-2 bg-gray-300 dark:bg-[#4C555C] hover:bg-red-200'
                                                     }`}
                                                 style={{
                                                     height: thumbnailSize * 1.4,
@@ -312,7 +312,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
                                                 {/* Scissor icon on hover or when split exists */}
                                                 {(isHovered || hasSplit) && (
                                                     <Scissors
-                                                        className={`w-4 h-4 ${hasSplit ? 'text-white' : 'text-blue-600 dark:text-blue-300'}`}
+                                                        className={`w-4 h-4 ${hasSplit ? 'text-white' : 'text-red-600 dark:text-red-300'}`}
                                                         style={{ transform: 'rotate(90deg)' }}
                                                     />
                                                 )}
