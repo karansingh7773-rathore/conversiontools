@@ -226,38 +226,19 @@ const OrganizeEditor: React.FC<OrganizeEditorProps> = ({ files, onClose, onAddMo
 
         setIsProcessing(true);
         try {
-            // Build page order array
-            const pageOrder: number[] = pages.map(p => p.originalPageNumber);
+            // Create instructions for assembling the new PDF
+            const instructions = pages.map(p => ({
+                fileIndex: p.fileIndex,
+                pageIndex: p.originalPageNumber - 1, // Convert to 0-based for pdf-lib
+                rotation: p.rotation
+            }));
 
-            // Group pages by rotation angle
-            const rotationGroups: Record<number, number[]> = {};
-            pages.forEach((page, idx) => {
-                if (page.rotation !== 0) {
-                    if (!rotationGroups[page.rotation]) {
-                        rotationGroups[page.rotation] = [];
-                    }
-                    rotationGroups[page.rotation].push(idx + 1); // 1-indexed page numbers
-                }
-            });
+            // Assemble the PDF from multiple source files with rotations applied
+            const resultBlob = await pdfClient.assemblePdf(files, instructions);
 
-            let resultBlob: Blob;
-
-            // First reorder if needed
-            const needsReorder = pageOrder.some((p, i) => p !== i + 1);
-            if (needsReorder) {
-                resultBlob = await pdfClient.reorderPages(files[0], pageOrder);
-            } else {
-                resultBlob = files[0];
-            }
-
-            // Then apply rotations - one call per rotation angle
-            for (const [angleStr, pageNumbers] of Object.entries(rotationGroups)) {
-                const angle = parseInt(angleStr) as 90 | 180 | 270;
-                const tempFile = new File([resultBlob], 'temp.pdf', { type: 'application/pdf' });
-                resultBlob = await pdfClient.rotatePdf(tempFile, angle, pageNumbers);
-            }
-
-            pdfClient.downloadBlob(resultBlob, `${files[0].name.replace(/\.pdf$/i, '')}_organized.pdf`);
+            // Generate filename based on first file name
+            const baseName = files[0].name.replace(/\.pdf$/i, '');
+            pdfClient.downloadBlob(resultBlob, `${baseName}_organized.pdf`);
         } catch (error) {
             console.error('Download failed:', error);
             alert('Failed to process PDF: ' + (error instanceof Error ? error.message : 'Unknown error'));

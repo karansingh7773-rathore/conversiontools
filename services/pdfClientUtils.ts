@@ -5,7 +5,7 @@
  * The files never leave the user's computer, making them INSTANT and PRIVATE.
  */
 
-import { PDFDocument, degrees, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, degrees, rgb, StandardFonts, Rotation } from 'pdf-lib';
 
 // ============== MERGE PDFs ==============
 
@@ -344,4 +344,75 @@ export async function downloadMultiple(
         // Small delay to prevent browser blocking
         await new Promise(resolve => setTimeout(resolve, 100));
     }
+}
+
+// ============== ASSEMBLE PDF (Multi-file / Organize) ==============
+
+export interface PageAssemblyInstruction {
+    fileIndex: number;
+    pageIndex: number; // 0-indexed
+    rotation: number; // degrees (0, 90, 180, 270)
+}
+
+/**
+ * Assemble a new PDF from pages of multiple source files
+ * Handles merging, reordering, deleting, and rotating in one operation.
+ * @param files - Array of source PDF files
+ * @param instructions - Array of instructions for each page in the new PDF
+ * @returns Blob of the assembled PDF
+ */
+export async function assemblePdf(
+    files: File[],
+    instructions: PageAssemblyInstruction[]
+): Promise<Blob> {
+    const newPdf = await PDFDocument.create();
+
+    // Cache loaded PDFs to avoid reloading the same file multiple times
+    const loadedPdfs: Record<number, PDFDocument> = {};
+
+    // Group instructions by file to minimize copyPages calls (optimization)
+    // However, for strict ordering, we might need to copy one by one or carefully map indices
+    // To ensure correct order, we simply iterate instructions and copy pages ensuring they are added in order.
+    // pdf-lib's copyPages allows copying multiple pages at once, but if we mix files, we have to do it in chunks.
+
+    // Better approach: Load all needed source PDFs first
+    // Then copy pages. Note: copyPages returns pages but doesn't add them. We can copy all needed pages from File A, then File B.
+    // BUT we need to add them to newPdf in the specific order of 'instructions'.
+
+    // So:
+    // 1. Identify all unique file indices
+    // 2. Load those PDFs
+    // 3. For each instruction in order:
+    //    - Get the source PDF
+    //    - Copy the single page (copyPages([index]))
+    //    - Add to newPdf
+    //    - Apply rotation
+
+    // 1. Load source PDFs
+    const uniqueFileIndices = [...new Set(instructions.map(i => i.fileIndex))];
+    for (const idx of uniqueFileIndices) {
+        if (!files[idx]) continue;
+        const arrayBuffer = await files[idx].arrayBuffer();
+        loadedPdfs[idx] = await PDFDocument.load(arrayBuffer);
+    }
+
+    // 2. Process instructions
+    for (const inst of instructions) {
+        const sourcePdf = loadedPdfs[inst.fileIndex];
+        if (!sourcePdf) continue;
+
+        // Copy a single page
+        const [copiedPage] = await newPdf.copyPages(sourcePdf, [inst.pageIndex]);
+
+        // Add to document
+        // Apply rotation - combine existing rotation with new rotation
+        // Note: copiedPage keeps its original rotation. We need to ADD our rotation to it.
+        const existingRotation = copiedPage.getRotation().angle;
+        copiedPage.setRotation(degrees(existingRotation + inst.rotation));
+
+        newPdf.addPage(copiedPage);
+    }
+
+    const savedBytes = await newPdf.save();
+    return new Blob([savedBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
 }
