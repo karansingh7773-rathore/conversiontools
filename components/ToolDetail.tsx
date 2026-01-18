@@ -11,6 +11,7 @@ import * as pdfClient from '../services/pdfClientUtils';
 import SignatureEditor, { SignatureData } from './SignatureEditor';
 import MergeEditor from './MergeEditor';
 import SplitEditor from './SplitEditor';
+import OrganizeEditor from './OrganizeEditor';
 
 // Types
 interface UploadedFile {
@@ -748,81 +749,51 @@ const ToolDetail: React.FC = () => {
         );
     };
 
-    const renderPdfRotate = () => (
-        <div className="space-y-4">
-            <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Page Preview</h3>
-                <button onClick={rotateAll} className="text-xs font-bold text-primary hover:bg-red-50 dark:hover:bg-red-900/10 px-2 py-1 rounded transition-colors flex items-center gap-1">
-                    <RotateCw className="w-3 h-3" /> Rotate All
-                </button>
-            </div>
+    const renderPdfRotate = () => {
+        if (uploadedFiles.length === 0) {
+            return (
+                <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Upload a PDF document to rotate pages visually.
+                    </p>
+                </div>
+            );
+        }
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-h-[400px] overflow-y-auto p-2 border border-gray-100 dark:border-gray-800 rounded-lg">
-                {mockPages.map((page) => (
-                    <div key={page.id} className="relative group">
-                        <div
-                            className="bg-white border shadow-sm rounded-md flex flex-col items-center justify-center aspect-[3/4] transition-transform duration-300"
-                            style={{ transform: `rotate(${page.rot}deg)` }}
-                        >
-                            <span className="text-2xl font-bold text-gray-200 select-none">{page.num}</span>
-                        </div>
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 dark:group-hover:bg-white/5 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
-                            <button
-                                onClick={() => rotatePage(page.id, 'cw')}
-                                className="p-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-full shadow-md hover:scale-110 transition-transform"
-                            >
-                                <RotateCw className="w-4 h-4" />
-                            </button>
-                        </div>
-                        <div className="text-center mt-1 text-xs text-gray-500">Page {page.num}</div>
-                    </div>
-                ))}
-            </div>
-            <p className="text-xs text-gray-500 text-center">Click hover icons to rotate individual pages.</p>
-        </div>
-    );
+        // Show full-screen OrganizeEditor when files are uploaded
+        return (
+            <OrganizeEditor
+                files={uploadedFiles.map(f => f.file)}
+                onClose={() => {
+                    clearAllFiles();
+                    navigate(-1);
+                }}
+            />
+        );
+    };
 
-    const renderPdfOrganize = () => (
-        <div className="space-y-4">
-            <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Drag & Drop Simulation</h3>
-                <span className="text-xs text-gray-500">{mockPages.length} pages total</span>
-            </div>
+    const renderPdfOrganize = () => {
+        if (uploadedFiles.length === 0) {
+            return (
+                <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Upload a PDF document to organize, reorder, or delete pages.
+                    </p>
+                </div>
+            );
+        }
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[500px] overflow-y-auto p-2">
-                {mockPages.map((page, index) => (
-                    <div key={page.id} className="relative group bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border border-transparent hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-                        <div className="bg-white border shadow-sm rounded flex flex-col items-center justify-center aspect-[3/4] mb-2">
-                            <span className="text-2xl font-bold text-gray-200 select-none">{page.num}</span>
-                        </div>
-
-                        <div className="flex justify-between items-center px-1">
-                            <button
-                                onClick={() => movePage(index, 'left')}
-                                disabled={index === 0}
-                                className="p-1 text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-30"
-                            >
-                                <MoveLeft className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => deletePage(page.id)}
-                                className="p-1 text-gray-400 hover:text-red-500"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => movePage(index, 'right')}
-                                disabled={index === mockPages.length - 1}
-                                className="p-1 text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-30"
-                            >
-                                <MoveRight className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
+        // Show full-screen OrganizeEditor when files are uploaded
+        return (
+            <OrganizeEditor
+                files={uploadedFiles.map(f => f.file)}
+                onClose={() => {
+                    clearAllFiles();
+                    navigate(-1);
+                }}
+            />
+        );
+    };
 
     const renderPdfLayout = () => (
         <div className="space-y-6">
