@@ -151,13 +151,13 @@ const MergeEditor: React.FC<MergeEditorProps> = ({ files: initialFiles, onClose 
     const totalPages = mergeFiles.reduce((sum, f) => sum + f.pageCount, 0);
 
     return (
-        <div className="fixed inset-0 z-50 bg-gray-100 dark:bg-[#32383D] flex flex-col">
+        <div className="fixed inset-0 z-50 bg-gray-100 dark:bg-[#0B1416] flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#3D444A] border-b border-gray-200 dark:border-[#4C555C]">
+            <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1A1A1B] border-b border-gray-200 dark:border-[#343536]">
                 <div className="flex items-center gap-4">
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-[#4C555C] rounded-lg transition-colors"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded-lg transition-colors"
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -188,7 +188,7 @@ const MergeEditor: React.FC<MergeEditorProps> = ({ files: initialFiles, onClose 
                 {/* Toggle Sidebar Button */}
                 <button
                     onClick={() => setSidebarOpen(!sidebarOpen)}
-                    className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 p-2 bg-white dark:bg-[#3D444A] border border-gray-200 dark:border-[#4C555C] rounded-r-lg shadow-md hover:bg-gray-50 dark:hover:bg-[#4C555C]"
+                    className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 p-2 bg-white dark:bg-[#1A1A1B] border border-gray-200 dark:border-[#343536] rounded-r-lg shadow-md hover:bg-gray-50 dark:hover:bg-[#343536]"
                     style={{ left: sidebarOpen ? '280px' : '0' }}
                 >
                     {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
@@ -196,9 +196,9 @@ const MergeEditor: React.FC<MergeEditorProps> = ({ files: initialFiles, onClose 
 
                 {/* Sidebar - File List */}
                 <div
-                    className={`${sidebarOpen ? 'w-72' : 'w-0'} transition-all duration-300 overflow-hidden bg-white dark:bg-[#3D444A] border-r border-gray-200 dark:border-[#4C555C] flex flex-col`}
+                    className={`${sidebarOpen ? 'w-72' : 'w-0'} transition-all duration-300 overflow-hidden bg-white dark:bg-[#1A1A1B] border-r border-gray-200 dark:border-[#343536] flex flex-col`}
                 >
-                    <div className="p-4 border-b border-gray-200 dark:border-[#4C555C]">
+                    <div className="p-4 border-b border-gray-200 dark:border-[#343536]">
                         <h2 className="text-sm font-bold uppercase text-gray-500 dark:text-gray-400 mb-2">Files to Merge</h2>
                         <p className="text-xs text-gray-400 mb-3">Drag to reorder</p>
                         <button
@@ -229,7 +229,7 @@ const MergeEditor: React.FC<MergeEditorProps> = ({ files: initialFiles, onClose 
                                 onDragEnd={handleDragEnd}
                                 className={`flex items-center gap-2 p-3 mb-2 rounded-lg border ${draggedIndex === index
                                     ? 'border-red-500 bg-red-50 dark:bg-red-900/30'
-                                    : 'border-gray-200 dark:border-[#4C555C] hover:bg-gray-50 dark:hover:bg-[#4C555C]'
+                                    : 'border-gray-200 dark:border-[#343536] hover:bg-gray-50 dark:hover:bg-[#343536]'
                                     } cursor-grab active:cursor-grabbing`}
                             >
                                 <GripVertical className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -314,12 +314,12 @@ const MergeEditor: React.FC<MergeEditorProps> = ({ files: initialFiles, onClose 
             </div>
 
             {/* Zoom Controls Bar - Like Stirling PDF */}
-            <div className="flex items-center justify-center gap-4 py-3 bg-white dark:bg-[#3D444A] border-t border-gray-200 dark:border-[#4C555C]">
+            <div className="flex items-center justify-center gap-4 py-3 bg-white dark:bg-[#1A1A1B] border-t border-gray-200 dark:border-[#343536]">
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => setPreviewScale(Math.max(0.25, previewScale - 0.1))}
                         disabled={previewScale <= 0.25}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-[#4C555C] rounded-lg disabled:opacity-30 transition-colors"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded-lg disabled:opacity-30 transition-colors"
                         title="Zoom Out"
                     >
                         <Minus className="w-4 h-4" />
@@ -332,7 +332,7 @@ const MergeEditor: React.FC<MergeEditorProps> = ({ files: initialFiles, onClose 
                     <button
                         onClick={() => setPreviewScale(Math.min(3, previewScale + 0.1))}
                         disabled={previewScale >= 3}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-[#4C555C] rounded-lg disabled:opacity-30 transition-colors"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded-lg disabled:opacity-30 transition-colors"
                         title="Zoom In"
                     >
                         <Plus className="w-4 h-4" />
@@ -340,14 +340,14 @@ const MergeEditor: React.FC<MergeEditorProps> = ({ files: initialFiles, onClose 
                 </div>
 
                 {/* Quick zoom presets */}
-                <div className="flex items-center gap-1 border-l border-gray-200 dark:border-[#4C555C] pl-4">
+                <div className="flex items-center gap-1 border-l border-gray-200 dark:border-[#343536] pl-4">
                     {[0.5, 0.75, 1, 1.5, 2].map(scale => (
                         <button
                             key={scale}
                             onClick={() => setPreviewScale(scale)}
                             className={`px-2 py-1 text-xs rounded ${Math.abs(previewScale - scale) < 0.05
                                 ? 'bg-red-500 text-white'
-                                : 'hover:bg-gray-100 dark:hover:bg-[#4C555C] text-gray-600 dark:text-gray-300'
+                                : 'hover:bg-gray-100 dark:hover:bg-[#343536] text-gray-600 dark:text-gray-300'
                                 }`}
                         >
                             {Math.round(scale * 100)}%

@@ -155,13 +155,13 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
     const groups = getSplitGroups();
 
     return (
-        <div className="fixed inset-0 z-50 bg-gray-100 dark:bg-[#32383D] flex flex-col">
+        <div className="fixed inset-0 z-50 bg-gray-100 dark:bg-[#0B1416] flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#3D444A] border-b border-gray-200 dark:border-[#4C555C]">
+            <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1A1A1B] border-b border-gray-200 dark:border-[#343536]">
                 <div className="flex items-center gap-4">
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-[#4C555C] rounded-lg transition-colors"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded-lg transition-colors"
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -172,7 +172,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
                     <button
                         onClick={clearAllSplits}
                         disabled={splitPoints.length === 0}
-                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-[#4C555C] rounded-lg disabled:opacity-30"
+                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-[#343536] rounded-lg disabled:opacity-30"
                     >
                         Clear Splits
                     </button>
@@ -198,7 +198,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
 
             {/* Split Groups Summary */}
             {splitPoints.length > 0 && (
-                <div className="px-6 py-3 bg-gray-50 dark:bg-[#3D444A] border-b border-gray-200 dark:border-[#4C555C] flex items-center gap-4 overflow-x-auto">
+                <div className="px-6 py-3 bg-gray-50 dark:bg-[#1A1A1B] border-b border-gray-200 dark:border-[#343536] flex items-center gap-4 overflow-x-auto">
                     <span className="text-sm font-medium text-gray-500 flex-shrink-0">Result:</span>
                     {groups.map((group, idx) => (
                         <div
@@ -298,7 +298,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
                                                     ? 'w-6 bg-red-500'
                                                     : isHovered
                                                         ? 'w-4 bg-red-300 dark:bg-red-600'
-                                                        : 'w-2 bg-gray-300 dark:bg-[#4C555C] hover:bg-red-200'
+                                                        : 'w-2 bg-gray-300 dark:bg-[#343536] hover:bg-red-200'
                                                     }`}
                                                 style={{
                                                     height: thumbnailSize * 1.4,

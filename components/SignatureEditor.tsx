@@ -367,13 +367,13 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
     return (
         <>
             {/* FULL SCREEN OVERLAY */}
-            <div className="fixed inset-0 z-50 bg-gray-100 dark:bg-[#32383D] flex flex-col">
+            <div className="fixed inset-0 z-50 bg-gray-100 dark:bg-[#0B1416] flex flex-col">
                 {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#3D444A] border-b border-gray-200 dark:border-[#4C555C]">
+                <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1A1A1B] border-b border-gray-200 dark:border-[#343536]">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={onClose}
-                            className="p-2 hover:bg-gray-100 dark:hover:bg-[#4C555C] rounded-lg transition-colors"
+                            className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded-lg transition-colors"
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -401,7 +401,7 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                 {/* Main Content */}
                 <div className="flex-1 flex min-h-0">
                     {/* Left Sidebar - Narrow */}
-                    <div className="w-64 flex-shrink-0 bg-white dark:bg-[#3D444A] border-r border-gray-200 dark:border-[#4C555C] overflow-y-auto">
+                    <div className="w-64 flex-shrink-0 bg-white dark:bg-[#1A1A1B] border-r border-gray-200 dark:border-[#343536] overflow-y-auto">
                         <div className="p-4 space-y-5">
                             {/* Step 1: Configure Signature */}
                             <div className="space-y-3">
@@ -415,7 +415,7 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                                 </p>
 
                                 {/* Mode Tabs */}
-                                <div className="flex border border-gray-200 dark:border-[#4C555C] rounded-lg overflow-hidden text-sm">
+                                <div className="flex border border-gray-200 dark:border-[#343536] rounded-lg overflow-hidden text-sm">
                                     {(['canvas', 'image', 'text'] as SignatureMode[]).map((m) => (
                                         <button
                                             key={m}
@@ -426,7 +426,7 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                                             }}
                                             className={`flex-1 px-3 py-2 font-medium capitalize transition-colors ${mode === m
                                                 ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
-                                                : 'bg-white dark:bg-[#4C555C] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#5C666E]'
+                                                : 'bg-white dark:bg-[#343536] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#4C555C]'
                                                 }`}
                                         >
                                             {m === 'canvas' ? 'Canvas' : m === 'image' ? 'Image' : 'Text'}
@@ -442,7 +442,7 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                                         {/* Preview box - click to open modal */}
                                         <div
                                             onClick={openCanvasModal}
-                                            className="border border-gray-300 dark:border-[#4C555C] rounded-lg bg-white h-24 flex items-center justify-center cursor-pointer hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                            className="border border-gray-300 dark:border-[#343536] rounded-lg bg-white h-24 flex items-center justify-center cursor-pointer hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                                         >
                                             {currentSignature ? (
                                                 <img src={currentSignature} alt="Signature" className="max-h-20 max-w-full" />
@@ -469,14 +469,14 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                                         />
                                         <button
                                             onClick={() => imageInputRef.current?.click()}
-                                            className="w-full px-3 py-3 border-2 border-dashed border-gray-300 dark:border-[#4C555C] rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:border-red-500 hover:text-red-500 transition-colors"
+                                            className="w-full px-3 py-3 border-2 border-dashed border-gray-300 dark:border-[#343536] rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:border-red-500 hover:text-red-500 transition-colors"
                                         >
                                             <Upload className="w-5 h-5 mx-auto mb-1" />
                                             Select image file
                                         </button>
 
                                         {uploadedImage && (
-                                            <div className="p-2 border border-gray-200 dark:border-[#4C555C] rounded-lg">
+                                            <div className="p-2 border border-gray-200 dark:border-[#343536] rounded-lg">
                                                 <img src={uploadedImage} alt="Signature" className="max-h-16 mx-auto" />
                                             </div>
                                         )}
@@ -493,7 +493,7 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                                                 value={signatureText}
                                                 onChange={(e) => setSignatureText(e.target.value)}
                                                 placeholder="Enter text"
-                                                className="w-full px-3 py-2 border border-gray-300 dark:border-[#4C555C] rounded-lg bg-white dark:bg-[#4C555C] text-sm"
+                                                className="w-full px-3 py-2 border border-gray-300 dark:border-[#343536] rounded-lg bg-white dark:bg-[#343536] text-sm"
                                             />
                                         </div>
 

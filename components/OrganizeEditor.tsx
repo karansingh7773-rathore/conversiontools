@@ -274,13 +274,13 @@ const OrganizeEditor: React.FC<OrganizeEditorProps> = ({ files, onClose, onAddMo
 
 
     return (
-        <div className="fixed inset-0 z-50 bg-gray-100 dark:bg-[#32383D] flex flex-col">
+        <div className="fixed inset-0 z-50 bg-gray-100 dark:bg-[#0B1416] flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#3D444A] border-b border-gray-200 dark:border-[#4C555C]">
+            <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1A1A1B] border-b border-gray-200 dark:border-[#343536]">
                 <div className="flex items-center gap-4">
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-[#4C555C] rounded-lg transition-colors"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded-lg transition-colors"
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -310,32 +310,32 @@ const OrganizeEditor: React.FC<OrganizeEditorProps> = ({ files, onClose, onAddMo
 
             {/* Desktop Toolbar */}
             {!isMobile && (
-                <div className="px-6 py-3 bg-gray-50 dark:bg-[#3D444A] border-b border-gray-200 dark:border-[#4C555C] flex items-center gap-4">
+                <div className="px-6 py-3 bg-gray-50 dark:bg-[#1A1A1B] border-b border-gray-200 dark:border-[#343536] flex items-center gap-4">
                     <button
                         onClick={toggleSelectAll}
-                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-200 dark:hover:bg-[#4C555C] rounded-lg text-sm"
+                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-200 dark:hover:bg-[#343536] rounded-lg text-sm"
                     >
                         {pages.every(p => p.selected) ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
                         Select All
                     </button>
-                    <div className="h-6 w-px bg-gray-300 dark:bg-[#4C555C]" />
+                    <div className="h-6 w-px bg-gray-300 dark:bg-[#343536]" />
                     <button
                         onClick={() => rotateAll('ccw')}
-                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-200 dark:hover:bg-[#4C555C] rounded-lg text-sm"
+                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-200 dark:hover:bg-[#343536] rounded-lg text-sm"
                     >
                         <RotateCcw className="w-4 h-4" />
                         Rotate All Left
                     </button>
                     <button
                         onClick={() => rotateAll('cw')}
-                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-200 dark:hover:bg-[#4C555C] rounded-lg text-sm"
+                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-200 dark:hover:bg-[#343536] rounded-lg text-sm"
                     >
                         <RotateCw className="w-4 h-4" />
                         Rotate All Right
                     </button>
                     {selectedCount > 0 && (
                         <>
-                            <div className="h-6 w-px bg-gray-300 dark:bg-[#4C555C]" />
+                            <div className="h-6 w-px bg-gray-300 dark:bg-[#343536]" />
                             <button
                                 onClick={() => rotateSelected('ccw')}
                                 className="flex items-center gap-2 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-sm"
@@ -397,7 +397,7 @@ const OrganizeEditor: React.FC<OrganizeEditorProps> = ({ files, onClose, onAddMo
                                 >
                                     {/* Page Thumbnail */}
                                     <div
-                                        className="bg-white dark:bg-[#4C555C] rounded-lg shadow-md overflow-hidden"
+                                        className="bg-white dark:bg-[#343536] rounded-lg shadow-md overflow-hidden"
                                         style={{
                                             transform: `rotate(${page.rotation}deg)`,
                                             transition: 'transform 0.3s ease'
@@ -476,7 +476,7 @@ const OrganizeEditor: React.FC<OrganizeEditorProps> = ({ files, onClose, onAddMo
                         <div className="flex justify-center mt-6">
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-[#4C555C] hover:bg-gray-300 dark:hover:bg-[#5C666E] rounded-lg text-sm font-medium"
+                                className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-[#343536] hover:bg-gray-300 dark:hover:bg-[#5C666E] rounded-lg text-sm font-medium"
                             >
                                 <Plus className="w-4 h-4" />
                                 Add More PDFs
@@ -496,7 +496,7 @@ const OrganizeEditor: React.FC<OrganizeEditorProps> = ({ files, onClose, onAddMo
 
             {/* Mobile Bottom Action Bar */}
             {isMobile && (selectionMode || selectedCount > 0) && (
-                <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#3D444A] border-t border-gray-200 dark:border-[#4C555C] px-4 py-3 flex items-center justify-around shadow-lg z-30">
+                <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1A1A1B] border-t border-gray-200 dark:border-[#343536] px-4 py-3 flex items-center justify-around shadow-lg z-30">
                     <button
                         onClick={() => rotateSelected('ccw')}
                         disabled={selectedCount === 0}
