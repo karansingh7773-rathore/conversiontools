@@ -718,12 +718,12 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                         </div>
 
                         {/* PDF Controls */}
-                        <div className="flex items-center justify-center gap-4 py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-center gap-4 py-3 bg-white dark:bg-[#1A1A1B] border-t border-gray-200 dark:border-[#343536]">
                             <div className="flex items-center gap-2">
-                                <button onClick={() => goToPage(1)} disabled={currentPage === 1} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-30">
+                                <button onClick={() => goToPage(1)} disabled={currentPage === 1} className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded disabled:opacity-30">
                                     <ChevronsLeft className="w-4 h-4" />
                                 </button>
-                                <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-30">
+                                <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded disabled:opacity-30">
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
                                 <div className="flex items-center gap-1">
@@ -733,24 +733,24 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                                         onChange={(e) => goToPage(parseInt(e.target.value) || 1)}
                                         min={1}
                                         max={numPages}
-                                        className="w-12 text-center border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800"
+                                        className="w-12 text-center border border-gray-300 dark:border-[#343536] rounded px-2 py-1 text-sm bg-white dark:bg-[#1A1A1B]"
                                     />
                                     <span className="text-sm text-gray-500">/ {numPages}</span>
                                 </div>
-                                <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === numPages} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-30">
+                                <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === numPages} className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded disabled:opacity-30">
                                     <ChevronRight className="w-4 h-4" />
                                 </button>
-                                <button onClick={() => goToPage(numPages)} disabled={currentPage === numPages} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-30">
+                                <button onClick={() => goToPage(numPages)} disabled={currentPage === numPages} className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded disabled:opacity-30">
                                     <ChevronsRight className="w-4 h-4" />
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-2 border-l border-gray-200 dark:border-gray-700 pl-4">
-                                <button onClick={zoomOut} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                            <div className="flex items-center gap-2 border-l border-gray-200 dark:border-[#343536] pl-4">
+                                <button onClick={zoomOut} className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded">
                                     <ZoomOut className="w-4 h-4" />
                                 </button>
                                 <span className="text-sm font-medium w-14 text-center">{Math.round(scale * 100)}%</span>
-                                <button onClick={zoomIn} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                                <button onClick={zoomIn} className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded">
                                     <ZoomIn className="w-4 h-4" />
                                 </button>
                             </div>
@@ -762,11 +762,11 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
             {/* CANVAS MODAL */}
             {isCanvasModalOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-[700px] max-w-[90vw]">
+                    <div className="bg-white dark:bg-[#1A1A1B] rounded-xl shadow-2xl w-[700px] max-w-[90vw]">
                         {/* Modal Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-[#343536]">
                             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Draw your signature</h2>
-                            <button onClick={closeCanvasModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                            <button onClick={closeCanvasModal} className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded-lg">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -781,7 +781,7 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                                         type="color"
                                         value={penColor}
                                         onChange={(e) => setPenColor(e.target.value)}
-                                        className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600 cursor-pointer p-0.5"
+                                        className="w-8 h-8 rounded border border-gray-300 dark:border-[#343536] cursor-pointer p-0.5"
                                     />
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -792,13 +792,13 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                                         onChange={(e) => setPenSize(Math.max(1, parseInt(e.target.value) || 1))}
                                         min={1}
                                         max={10}
-                                        className="w-16 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-sm"
+                                        className="w-16 px-3 py-2 border border-gray-300 dark:border-[#343536] rounded bg-white dark:bg-[#1A1A1B] text-sm"
                                     />
                                 </div>
                             </div>
 
                             {/* Canvas Area */}
-                            <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white">
+                            <div className="border border-gray-300 dark:border-[#343536] rounded-lg overflow-hidden bg-white">
                                 <SignatureCanvas
                                     ref={modalCanvasRef}
                                     penColor={penColor}
@@ -814,7 +814,7 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                         </div>
 
                         {/* Modal Footer */}
-                        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-[#343536]">
                             <button
                                 onClick={clearModalCanvas}
                                 className="text-sm text-red-600 hover:text-red-700 font-medium"
@@ -823,7 +823,7 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                             </button>
                             <button
                                 onClick={saveModalCanvas}
-                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg"
+                                className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg"
                             >
                                 Done
                             </button>
