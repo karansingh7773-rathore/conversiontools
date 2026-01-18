@@ -768,6 +768,7 @@ const ToolDetail: React.FC = () => {
                     clearAllFiles();
                     navigate(-1);
                 }}
+                onAddMoreFiles={() => fileInputRef.current?.click()}
             />
         );
     };
@@ -791,6 +792,7 @@ const ToolDetail: React.FC = () => {
                     clearAllFiles();
                     navigate(-1);
                 }}
+                onAddMoreFiles={() => fileInputRef.current?.click()}
             />
         );
     };
