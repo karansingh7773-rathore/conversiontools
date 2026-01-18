@@ -51,55 +51,8 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
         return () => URL.revokeObjectURL(url);
     }, [file]);
 
-    // Wheel zoom handler (Ctrl+scroll or pinch)
-    useEffect(() => {
-        const container = containerRef.current;
-        if (!container) return;
-
-        let lastTouchDistance = 0;
-
-        const handleWheel = (e: WheelEvent) => {
-            // Require Ctrl/Cmd + scroll for zoom (allows normal scrolling)
-            if (e.ctrlKey || e.metaKey) {
-                e.preventDefault();
-                const delta = e.deltaY > 0 ? -15 : 15;
-                setThumbnailSize(prev => Math.max(80, Math.min(300, prev + delta)));
-            }
-        };
-
-        const handleTouchStart = (e: TouchEvent) => {
-            if (e.touches.length === 2) {
-                const dx = e.touches[0].clientX - e.touches[1].clientX;
-                const dy = e.touches[0].clientY - e.touches[1].clientY;
-                lastTouchDistance = Math.sqrt(dx * dx + dy * dy);
-            }
-        };
-
-        const handleTouchMove = (e: TouchEvent) => {
-            if (e.touches.length === 2) {
-                e.preventDefault();
-                const dx = e.touches[0].clientX - e.touches[1].clientX;
-                const dy = e.touches[0].clientY - e.touches[1].clientY;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (lastTouchDistance > 0) {
-                    const scale = distance / lastTouchDistance;
-                    setThumbnailSize(prev => Math.max(80, Math.min(300, prev * scale)));
-                }
-                lastTouchDistance = distance;
-            }
-        };
-
-        container.addEventListener('wheel', handleWheel, { passive: false });
-        container.addEventListener('touchstart', handleTouchStart, { passive: true });
-        container.addEventListener('touchmove', handleTouchMove, { passive: false });
-
-        return () => {
-            container.removeEventListener('wheel', handleWheel);
-            container.removeEventListener('touchstart', handleTouchStart);
-            container.removeEventListener('touchmove', handleTouchMove);
-        };
-    }, []);
+    // Note: Thumbnail size is controlled by + / - buttons in the toolbar
+    // This is better for split point selection since users need precise clicking
 
     const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
         setNumPages(numPages);

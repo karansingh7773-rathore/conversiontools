@@ -1,15 +1,74 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
+import { TransformWrapper, TransformComponent, useControls } from 'react-zoom-pan-pinch';
 import {
     X, Loader2, Download, Trash2, GripVertical, Plus,
-    ChevronLeft, PanelLeftClose, PanelLeft, FileText, ZoomIn, ZoomOut, Minus
+    ChevronLeft, PanelLeftClose, PanelLeft, FileText, ZoomIn, ZoomOut, Minus, RotateCcw
 } from 'lucide-react';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { mergePdfs, downloadBlob, getPageCount } from '../services/pdfClientUtils';
 
+
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+// Zoom Controls Component - uses useControls hook from react-zoom-pan-pinch
+const ZoomControls: React.FC<{ scale: number }> = ({ scale }) => {
+    const { zoomIn, zoomOut, resetTransform, setTransform } = useControls();
+
+    return (
+        <div className="flex items-center justify-center gap-4 py-3 bg-white dark:bg-[#1A1A1B] border-t border-gray-200 dark:border-[#343536]">
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={() => zoomOut(0.2)}
+                    disabled={scale <= 0.25}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded-lg disabled:opacity-30 transition-colors"
+                    title="Zoom Out"
+                >
+                    <Minus className="w-4 h-4" />
+                </button>
+
+                <span className="w-16 text-center text-sm font-medium text-gray-600 dark:text-gray-300">
+                    {Math.round(scale * 100)}%
+                </span>
+
+                <button
+                    onClick={() => zoomIn(0.2)}
+                    disabled={scale >= 4}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded-lg disabled:opacity-30 transition-colors"
+                    title="Zoom In"
+                >
+                    <Plus className="w-4 h-4" />
+                </button>
+
+                <button
+                    onClick={() => resetTransform()}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded-lg transition-colors"
+                    title="Reset Zoom"
+                >
+                    <RotateCcw className="w-4 h-4" />
+                </button>
+            </div>
+
+            {/* Quick zoom presets */}
+            <div className="flex items-center gap-1 border-l border-gray-200 dark:border-[#343536] pl-4">
+                {[0.5, 0.75, 1, 1.5, 2].map(presetScale => (
+                    <button
+                        key={presetScale}
+                        onClick={() => setTransform(0, 0, presetScale)}
+                        className={`px-2 py-1 text-xs rounded ${Math.abs(scale - presetScale) < 0.05
+                            ? 'bg-red-500 text-white'
+                            : 'hover:bg-gray-100 dark:hover:bg-[#343536] text-gray-600 dark:text-gray-300'
+                            }`}
+                    >
+                        {Math.round(presetScale * 100)}%
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+};
 
 interface MergeFile {
     id: string;
@@ -72,55 +131,7 @@ const MergeEditor: React.FC<MergeEditorProps> = ({ files: initialFiles, onClose 
         };
     }, []);
 
-    // Wheel zoom handler (Ctrl+scroll or pinch)
-    useEffect(() => {
-        const container = previewContainerRef.current;
-        if (!container) return;
-
-        let lastTouchDistance = 0;
-
-        const handleWheel = (e: WheelEvent) => {
-            // Require Ctrl/Cmd + scroll for zoom (allows normal scrolling)
-            if (e.ctrlKey || e.metaKey) {
-                e.preventDefault();
-                const delta = e.deltaY > 0 ? -0.1 : 0.1;
-                setPreviewScale(prev => Math.max(0.25, Math.min(3, prev + delta)));
-            }
-        };
-
-        const handleTouchStart = (e: TouchEvent) => {
-            if (e.touches.length === 2) {
-                const dx = e.touches[0].clientX - e.touches[1].clientX;
-                const dy = e.touches[0].clientY - e.touches[1].clientY;
-                lastTouchDistance = Math.sqrt(dx * dx + dy * dy);
-            }
-        };
-
-        const handleTouchMove = (e: TouchEvent) => {
-            if (e.touches.length === 2) {
-                e.preventDefault();
-                const dx = e.touches[0].clientX - e.touches[1].clientX;
-                const dy = e.touches[0].clientY - e.touches[1].clientY;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (lastTouchDistance > 0) {
-                    const scale = distance / lastTouchDistance;
-                    setPreviewScale(prev => Math.max(0.25, Math.min(3, prev * scale)));
-                }
-                lastTouchDistance = distance;
-            }
-        };
-
-        container.addEventListener('wheel', handleWheel, { passive: false });
-        container.addEventListener('touchstart', handleTouchStart, { passive: true });
-        container.addEventListener('touchmove', handleTouchMove, { passive: false });
-
-        return () => {
-            container.removeEventListener('wheel', handleWheel);
-            container.removeEventListener('touchstart', handleTouchStart);
-            container.removeEventListener('touchmove', handleTouchMove);
-        };
-    }, []);
+    // Note: Zoom/pan handling is now done by react-zoom-pan-pinch library
 
     // Add more files
     const handleAddFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -301,108 +312,83 @@ const MergeEditor: React.FC<MergeEditorProps> = ({ files: initialFiles, onClose 
                     </div>
                 </div>
 
-                {/* PDF Preview Area - Scrollable */}
+                {/* PDF Preview Area - With Zoom/Pan/Pinch */}
                 <div
-                    className="flex-1 overflow-y-auto bg-gray-200 dark:bg-[#120F0F] p-6"
+                    className="flex-1 overflow-hidden bg-gray-200 dark:bg-[#120F0F]"
                     ref={previewContainerRef}
                 >
-                    <div className="flex flex-col items-center space-y-6">
-                        {mergeFiles.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-gray-500">
-                                <FileText className="w-16 h-16 mb-4 text-gray-300" />
-                                <p className="text-lg">No PDF files added</p>
-                                <p className="text-sm">Add PDF files to see preview</p>
-                            </div>
-                        ) : (
-                            mergeFiles.map((mergeFile, fileIndex) => (
-                                <div key={mergeFile.id} className="w-full flex flex-col items-center space-y-4">
-                                    {/* File Header */}
-                                    <div className="flex items-center gap-2">
-                                        <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                                            {fileIndex + 1}
-                                        </span>
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{mergeFile.name}</span>
-                                    </div>
-
-                                    {/* Pages Preview - Centered and Width-based */}
-                                    <Document
-                                        file={mergeFile.url}
-                                        loading={
-                                            <div className="flex items-center justify-center h-40 bg-white rounded-lg w-full max-w-2xl">
-                                                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                                            </div>
-                                        }
-                                    >
-                                        {Array.from({ length: mergeFile.pageCount }, (_, i) => (
-                                            <div
-                                                key={i}
-                                                className="mb-6 shadow-2xl rounded-lg overflow-hidden"
-                                                style={{
-                                                    width: `${Math.round(previewScale * 600)}px`,
-                                                    maxWidth: '100%'
-                                                }}
-                                            >
-                                                <Page
-                                                    pageNumber={i + 1}
-                                                    width={Math.round(previewScale * 600)}
-                                                    renderTextLayer={false}
-                                                    renderAnnotationLayer={false}
-                                                    className="bg-white"
-                                                />
-                                                {/* Page number label */}
-                                                <div className="text-center text-xs text-gray-500 py-2 bg-gray-50 dark:bg-gray-800">
-                                                    Page {i + 1}
+                    <TransformWrapper
+                        initialScale={1}
+                        minScale={0.25}
+                        maxScale={4}
+                        centerOnInit={true}
+                        wheel={{ disabled: true }}
+                        doubleClick={{ mode: 'reset' }}
+                        panning={{ disabled: true }}
+                        pinch={{ step: 5 }}
+                        onTransformed={(ref) => setPreviewScale(ref.state.scale)}
+                    >
+                        {({ zoomIn, zoomOut, resetTransform }) => (
+                            <>
+                                <TransformComponent
+                                    wrapperStyle={{ width: '100%', height: '100%', overflow: 'auto' }}
+                                    contentStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px' }}
+                                >
+                                    {mergeFiles.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-gray-500">
+                                            <FileText className="w-16 h-16 mb-4 text-gray-300" />
+                                            <p className="text-lg">No PDF files added</p>
+                                            <p className="text-sm">Add PDF files to see preview</p>
+                                        </div>
+                                    ) : (
+                                        mergeFiles.map((mergeFile, fileIndex) => (
+                                            <div key={mergeFile.id} className="w-full flex flex-col items-center space-y-4 mb-6">
+                                                {/* File Header */}
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                                        {fileIndex + 1}
+                                                    </span>
+                                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{mergeFile.name}</span>
                                                 </div>
+
+                                                {/* Pages Preview */}
+                                                <Document
+                                                    file={mergeFile.url}
+                                                    loading={
+                                                        <div className="flex items-center justify-center h-40 bg-white rounded-lg w-full max-w-2xl">
+                                                            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                                                        </div>
+                                                    }
+                                                >
+                                                    {Array.from({ length: mergeFile.pageCount }, (_, i) => (
+                                                        <div
+                                                            key={i}
+                                                            className="mb-6 shadow-2xl rounded-lg overflow-hidden"
+                                                        >
+                                                            <Page
+                                                                pageNumber={i + 1}
+                                                                width={600}
+                                                                renderTextLayer={false}
+                                                                renderAnnotationLayer={false}
+                                                                className="bg-white"
+                                                            />
+                                                            {/* Page number label */}
+                                                            <div className="text-center text-xs text-gray-500 py-2 bg-gray-50 dark:bg-gray-800">
+                                                                Page {i + 1}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </Document>
                                             </div>
-                                        ))}
-                                    </Document>
-                                </div>
-                            ))
+                                        ))
+                                    )}
+                                </TransformComponent>
+
+                                {/* Zoom Controls - Inside TransformWrapper context */}
+                                <ZoomControls scale={previewScale} />
+                            </>
                         )}
-                    </div>
-                </div>
-            </div>
-
-            {/* Zoom Controls Bar - Like Stirling PDF */}
-            <div className="flex items-center justify-center gap-4 py-3 bg-white dark:bg-[#1A1A1B] border-t border-gray-200 dark:border-[#343536]">
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setPreviewScale(Math.max(0.25, previewScale - 0.1))}
-                        disabled={previewScale <= 0.25}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded-lg disabled:opacity-30 transition-colors"
-                        title="Zoom Out"
-                    >
-                        <Minus className="w-4 h-4" />
-                    </button>
-
-                    <span className="w-16 text-center text-sm font-medium text-gray-600 dark:text-gray-300">
-                        {Math.round(previewScale * 100)}%
-                    </span>
-
-                    <button
-                        onClick={() => setPreviewScale(Math.min(3, previewScale + 0.1))}
-                        disabled={previewScale >= 3}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-[#343536] rounded-lg disabled:opacity-30 transition-colors"
-                        title="Zoom In"
-                    >
-                        <Plus className="w-4 h-4" />
-                    </button>
-                </div>
-
-                {/* Quick zoom presets */}
-                <div className="flex items-center gap-1 border-l border-gray-200 dark:border-[#343536] pl-4">
-                    {[0.5, 0.75, 1, 1.5, 2].map(scale => (
-                        <button
-                            key={scale}
-                            onClick={() => setPreviewScale(scale)}
-                            className={`px-2 py-1 text-xs rounded ${Math.abs(previewScale - scale) < 0.05
-                                ? 'bg-red-500 text-white'
-                                : 'hover:bg-gray-100 dark:hover:bg-[#343536] text-gray-600 dark:text-gray-300'
-                                }`}
-                        >
-                            {Math.round(scale * 100)}%
-                        </button>
-                    ))}
+                    </TransformWrapper>
                 </div>
             </div>
         </div>
