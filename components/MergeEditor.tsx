@@ -80,11 +80,10 @@ const MergeEditor: React.FC<MergeEditorProps> = ({ files: initialFiles, onClose 
         let lastTouchDistance = 0;
 
         const handleWheel = (e: WheelEvent) => {
-            if (e.ctrlKey || e.metaKey) {
-                e.preventDefault();
-                const delta = e.deltaY > 0 ? -0.1 : 0.1;
-                setPreviewScale(prev => Math.max(0.25, Math.min(3, prev + delta)));
-            }
+            // Always zoom on scroll wheel in the PDF preview area
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            setPreviewScale(prev => Math.max(0.25, Math.min(3, prev + delta)));
         };
 
         const handleTouchStart = (e: TouchEvent) => {

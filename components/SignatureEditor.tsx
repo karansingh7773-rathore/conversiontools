@@ -307,6 +307,63 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
         window.addEventListener('mouseup', handleMouseUp);
     }, [placedSignatures, history, historyIndex]);
 
+    // Drag signature handler - allows moving signatures by dragging
+    const handleDrag = useCallback((sigId: string, e: React.MouseEvent | React.TouchEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        const pdfPage = pdfPageRef.current;
+        if (!pdfPage) return;
+
+        const sig = placedSignatures.find(s => s.id === sigId);
+        if (!sig) return;
+
+        const rect = pdfPage.getBoundingClientRect();
+        const isTouch = 'touches' in e;
+        const startX = isTouch ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX;
+        const startY = isTouch ? (e as React.TouchEvent).touches[0].clientY : (e as React.MouseEvent).clientY;
+        const startLeft = sig.x;
+        const startTop = sig.y;
+
+        const handleMove = (moveEvent: MouseEvent | TouchEvent) => {
+            const clientX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
+            const clientY = 'touches' in moveEvent ? moveEvent.touches[0].clientY : moveEvent.clientY;
+
+            const deltaX = ((clientX - startX) / rect.width) * 100;
+            const deltaY = ((clientY - startY) / rect.height) * 100;
+
+            let newX = startLeft + deltaX;
+            let newY = startTop + deltaY;
+
+            // Clamp to stay within PDF bounds
+            newX = Math.max(0, Math.min(100 - sig.width, newX));
+            newY = Math.max(0, Math.min(100 - sig.height, newY));
+
+            const updated = placedSignatures.map(s =>
+                s.id === sigId ? { ...s, x: newX, y: newY } : s
+            );
+            setPlacedSignatures(updated);
+        };
+
+        const handleEnd = () => {
+            window.removeEventListener('mousemove', handleMove);
+            window.removeEventListener('mouseup', handleEnd);
+            window.removeEventListener('touchmove', handleMove);
+            window.removeEventListener('touchend', handleEnd);
+
+            // Save to history
+            const newHistory = history.slice(0, historyIndex + 1);
+            newHistory.push(placedSignatures);
+            setHistory(newHistory);
+            setHistoryIndex(newHistory.length - 1);
+        };
+
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
+        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('touchend', handleEnd);
+    }, [placedSignatures, history, historyIndex]);
+
     const undo = () => {
         if (historyIndex > 0) {
             setHistoryIndex(historyIndex - 1);
@@ -659,9 +716,13 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                                                     width: `${sig.width}%`,
                                                     height: `${sig.height}%`,
                                                 }}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
+                                                onMouseDown={(e) => {
                                                     setSelectedSignatureId(sig.id);
+                                                    handleDrag(sig.id, e);
+                                                }}
+                                                onTouchStart={(e) => {
+                                                    setSelectedSignatureId(sig.id);
+                                                    handleDrag(sig.id, e);
                                                 }}
                                             >
                                                 <img
