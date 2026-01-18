@@ -59,10 +59,12 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
         let lastTouchDistance = 0;
 
         const handleWheel = (e: WheelEvent) => {
-            // Always zoom on scroll wheel in the preview area
-            e.preventDefault();
-            const delta = e.deltaY > 0 ? -15 : 15;
-            setThumbnailSize(prev => Math.max(80, Math.min(300, prev + delta)));
+            // Require Ctrl/Cmd + scroll for zoom (allows normal scrolling)
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -15 : 15;
+                setThumbnailSize(prev => Math.max(80, Math.min(300, prev + delta)));
+            }
         };
 
         const handleTouchStart = (e: TouchEvent) => {
