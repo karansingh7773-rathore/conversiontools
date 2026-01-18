@@ -253,7 +253,7 @@ const MergeEditor: React.FC<MergeEditorProps> = ({ files: initialFiles, onClose 
 
                 {/* PDF Preview Area - Scrollable */}
                 <div
-                    className="flex-1 overflow-y-auto bg-gray-200 dark:bg-[#32383D] p-6"
+                    className="flex-1 overflow-y-auto bg-gray-200 dark:bg-[#120F0F] p-6"
                     ref={previewContainerRef}
                 >
                     <div className="flex flex-col items-center space-y-6">

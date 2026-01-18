@@ -616,7 +616,7 @@ const SignatureEditor: React.FC<SignatureEditorProps> = ({ file, onSign, isProce
                     </div>
 
                     {/* PDF Preview Area */}
-                    <div className="flex-1 flex flex-col min-w-0 bg-gray-200 dark:bg-gray-900">
+                    <div className="flex-1 flex flex-col min-w-0 bg-gray-200 dark:bg-[#120F0F]">
                         {/* PDF Container - scrollable area */}
                         <div
                             ref={pdfContainerRef}
