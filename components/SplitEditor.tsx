@@ -8,7 +8,11 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { splitPdf, downloadBlob, downloadMultiple, getPageCount } from '../services/pdfClientUtils';
 
 // Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Configure PDF.js worker - use bundled approach for Vite
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url
+).toString();
 
 interface SplitEditorProps {
     file: File;
@@ -257,8 +261,8 @@ const SplitEditor: React.FC<SplitEditorProps> = ({ file, onClose }) => {
                                     key={idx}
                                     onClick={() => toggleFileSelection(idx)}
                                     className={`px-3 py-2 rounded-lg border-2 flex-shrink-0 transition-all ${isSelected
-                                            ? 'ring-2 ring-offset-1 ring-blue-500 border-blue-500 bg-blue-100 dark:bg-blue-900/30'
-                                            : group.color
+                                        ? 'ring-2 ring-offset-1 ring-blue-500 border-blue-500 bg-blue-100 dark:bg-blue-900/30'
+                                        : group.color
                                         }`}
                                 >
                                     <span className="text-sm font-semibold text-gray-900 dark:text-white">

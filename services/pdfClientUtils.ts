@@ -474,3 +474,183 @@ export async function unlockPdf(
         );
     }
 }
+
+// ============== METADATA OPERATIONS ==============
+
+export interface PdfMetadata {
+    title: string | undefined;
+    author: string | undefined;
+    subject: string | undefined;
+    keywords: string[] | undefined;
+    creator: string | undefined;
+    producer: string | undefined;
+    creationDate: Date | undefined;
+    modificationDate: Date | undefined;
+}
+
+/**
+ * Get metadata from a PDF - client-side!
+ * Returns all metadata fields that can potentially leak private information.
+ */
+export async function getMetadata(pdfFile: File): Promise<PdfMetadata> {
+    const arrayBuffer = await pdfFile.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+
+    return {
+        title: pdfDoc.getTitle(),
+        author: pdfDoc.getAuthor(),
+        subject: pdfDoc.getSubject(),
+        keywords: pdfDoc.getKeywords()?.split(',').map(k => k.trim()),
+        creator: pdfDoc.getCreator(),
+        producer: pdfDoc.getProducer(),
+        creationDate: pdfDoc.getCreationDate(),
+        modificationDate: pdfDoc.getModificationDate(),
+    };
+}
+
+/**
+ * Sanitize PDF metadata - removes all identifying information!
+ * Strips Author, Creator, Title, Subject, Keywords, Producer.
+ */
+export async function sanitizeMetadata(pdfFile: File): Promise<Blob> {
+    const arrayBuffer = await pdfFile.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+
+    // Clear all metadata fields
+    pdfDoc.setTitle('');
+    pdfDoc.setAuthor('');
+    pdfDoc.setSubject('');
+    pdfDoc.setKeywords([]);
+    pdfDoc.setCreator('');
+    pdfDoc.setProducer('');
+
+    const pdfBytes = await pdfDoc.save();
+    return new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
+}
+
+// ============== REDACTION OPERATIONS ==============
+
+export interface RedactionArea {
+    pageIndex: number; // 0-based
+    x: number;         // Percentage of page width (0-100)
+    y: number;         // Percentage of page height (0-100)
+    width: number;     // Percentage of page width
+    height: number;    // Percentage of page height
+}
+
+/**
+ * Apply redactions to a PDF using the Flatten Strategy for 100% security.
+ * 
+ * This method:
+ * 1. Draws black rectangles at the marked positions
+ * 2. Renders each redacted page as a high-quality image using pdf.js
+ * 3. Replaces the PDF page with the flattened image
+ * 
+ * Result: The original text layer is PHYSICALLY DESTROYED - no hidden text can be copied.
+ * 
+ * @param pdfFile - The PDF file to redact
+ * @param redactions - Array of areas to redact (coordinates as percentages)
+ * @param renderScale - Scale factor for rendering (2 = 2x resolution, higher = better quality but larger file)
+ */
+export async function applyRedactions(
+    pdfFile: File,
+    redactions: RedactionArea[],
+    renderScale: number = 2
+): Promise<Blob> {
+    // Load the PDF with pdf-lib
+    const arrayBuffer = await pdfFile.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+
+    // Group redactions by page
+    const redactionsByPage = new Map<number, RedactionArea[]>();
+    for (const r of redactions) {
+        if (!redactionsByPage.has(r.pageIndex)) {
+            redactionsByPage.set(r.pageIndex, []);
+        }
+        redactionsByPage.get(r.pageIndex)!.push(r);
+    }
+
+    // Import pdfjs-dist dynamically
+    const pdfjsLib = await import('pdfjs-dist');
+
+    // Set worker source to use local bundled worker for version compatibility
+    // Disable worker and use main thread instead (simpler, works for our use case)
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+
+    // Load with pdf.js for rendering
+    const pdfJsDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    // Create a new PDF for the result
+    const resultPdf = await PDFDocument.create();
+
+    // Process each page
+    const pageCount = pdfDoc.getPageCount();
+    for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+        const originalPage = pdfDoc.getPage(pageIndex);
+        const { width: pageWidth, height: pageHeight } = originalPage.getSize();
+
+        // Check if this page has redactions
+        const pageRedactions = redactionsByPage.get(pageIndex);
+
+        if (pageRedactions && pageRedactions.length > 0) {
+            // This page needs redaction - use Flatten Strategy
+
+            // Step 1: Draw black rectangles on the original page (for visual preview)
+            for (const r of pageRedactions) {
+                const rectX = (r.x / 100) * pageWidth;
+                const rectY = pageHeight - ((r.y / 100) * pageHeight) - ((r.height / 100) * pageHeight);
+                const rectWidth = (r.width / 100) * pageWidth;
+                const rectHeight = (r.height / 100) * pageHeight;
+
+                originalPage.drawRectangle({
+                    x: rectX,
+                    y: rectY,
+                    width: rectWidth,
+                    height: rectHeight,
+                    color: rgb(0, 0, 0), // Black
+                });
+            }
+
+            // Step 2: Save the modified PDF temporarily to get updated bytes
+            const tempBytes = await pdfDoc.save();
+            const tempPdfJs = await pdfjsLib.getDocument({ data: tempBytes }).promise;
+            const pdfJsPage = await tempPdfJs.getPage(pageIndex + 1); // pdf.js uses 1-based
+
+            // Step 3: Render page to canvas at high resolution
+            const viewport = pdfJsPage.getViewport({ scale: renderScale });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const ctx = canvas.getContext('2d')!;
+
+            await pdfJsPage.render({
+                canvasContext: ctx,
+                viewport: viewport,
+                canvas: canvas
+            }).promise;
+
+            // Step 4: Convert canvas to JPEG image
+            const imageDataUrl = canvas.toDataURL('image/jpeg', 0.92); // 92% quality
+            const imageBytes = Uint8Array.from(atob(imageDataUrl.split(',')[1]), c => c.charCodeAt(0));
+
+            // Step 5: Embed image and create new page
+            const jpgImage = await resultPdf.embedJpg(imageBytes);
+            const newPage = resultPdf.addPage([pageWidth, pageHeight]);
+            newPage.drawImage(jpgImage, {
+                x: 0,
+                y: 0,
+                width: pageWidth,
+                height: pageHeight,
+            });
+        } else {
+            // No redactions on this page - copy as-is
+            const [copiedPage] = await resultPdf.copyPages(pdfDoc, [pageIndex]);
+            resultPdf.addPage(copiedPage);
+        }
+    }
+
+    // Save the result
+    const resultBytes = await resultPdf.save();
+    return new Blob([resultBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
+}
+

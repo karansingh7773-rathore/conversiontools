@@ -9,7 +9,11 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import * as pdfClient from '../services/pdfClientUtils';
 
 // Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Configure PDF.js worker - use bundled approach for Vite
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url
+).toString();
 
 interface OrganizeEditorProps {
     files: File[];

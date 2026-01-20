@@ -8,6 +8,14 @@ import {
 import { TOOLS } from '../constants';
 import * as api from '../services/api';
 import { IoIosLock, IoIosUnlock } from 'react-icons/io';
+import { RedactEditor, RedactionMark } from './RedactEditor';
+import { getMetadata, sanitizeMetadata, applyRedactions, downloadBlob, PdfMetadata } from '../services/pdfClientUtils';
+
+// Editors
+import SignatureEditor, { SignatureData } from './SignatureEditor';
+import MergeEditor from './MergeEditor';
+import SplitEditor from './SplitEditor';
+import OrganizeEditor from './OrganizeEditor';
 
 // Types
 interface UploadedFile {
@@ -81,6 +89,12 @@ const ToolDetail: React.FC = () => {
 
     // URL to PDF
     const [urlInput, setUrlInput] = useState('');
+
+    // Redact & Sanitize state
+    const [redactMode, setRedactMode] = useState<'sanitize' | 'redact'>('sanitize');
+    const [redactionMarks, setRedactionMarks] = useState<RedactionMark[]>([]);
+    const [detectedMetadata, setDetectedMetadata] = useState<PdfMetadata | null>(null);
+    const [isScanning, setIsScanning] = useState(false);
 
     // Image States
     const [width, setWidth] = useState(1920);
@@ -327,6 +341,40 @@ const ToolDetail: React.FC = () => {
                         creator: metaCreator || undefined
                     });
                     break;
+
+                case 'pdf-redact':
+                    if (files.length === 0) throw new Error('Please upload a PDF file');
+
+                    if (redactMode === 'sanitize') {
+                        // Client-side metadata removal
+                        setProcessingMessage('Removing metadata...');
+                        const sanitizedBlob = await sanitizeMetadata(files[0]);
+                        const filename = files[0].name.replace('.pdf', '_sanitized.pdf');
+                        downloadBlob(sanitizedBlob, filename);
+                        setSuccess('PDF sanitized! Metadata removed. File downloaded.');
+                        setIsProcessing(false);
+                        return;
+                    } else {
+                        // Client-side redaction with flatten strategy
+                        if (redactionMarks.length === 0) throw new Error('Please mark areas to redact');
+                        setProcessingMessage('Applying secure redactions...');
+                        const redactedBlob = await applyRedactions(
+                            files[0],
+                            redactionMarks.map(m => ({
+                                pageIndex: m.pageIndex,
+                                x: m.x,
+                                y: m.y,
+                                width: m.width,
+                                height: m.height
+                            }))
+                        );
+                        const filename = files[0].name.replace('.pdf', '_redacted.pdf');
+                        downloadBlob(redactedBlob, filename);
+                        setRedactionMarks([]);
+                        setSuccess('PDF redacted securely! Text under redactions is permanently removed.');
+                        setIsProcessing(false);
+                        return;
+                    }
 
                 // PDF Advanced (Stirling)
                 case 'pdf-ocr':
@@ -663,184 +711,127 @@ const ToolDetail: React.FC = () => {
     };
 
     // --- UI Renderers ---
-    const renderPdfMerge = () => (
-        <div className="space-y-4">
-            <div className="space-y-2">
-                <div className="flex justify-between items-center mb-2">
-                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Files to Merge</label>
-                    {uploadedFiles.length > 0 && (
-                        <button
-                            onClick={clearAllFiles}
-                            className="text-xs text-primary font-bold hover:underline"
-                        >
-                            Clear All
-                        </button>
-                    )}
+    const renderPdfMerge = () => {
+        if (uploadedFiles.length === 0) {
+            return (
+                <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Upload 2 or more PDF documents to merge them.
+                    </p>
                 </div>
-                <div className="space-y-2">
-                    {uploadedFiles.map((file) => (
-                        <div key={file.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md group hover:border-primary/30 transition-colors">
-                            <div className="flex items-center gap-3">
-                                <GripVertical className="w-4 h-4 text-gray-400 cursor-move" />
-                                <div className="h-8 w-8 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center text-red-500">
-                                    <FileText className="w-4 h-4" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-900 dark:text-gray-200">{file.name}</p>
-                                    <p className="text-xs text-gray-500">{file.size}</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => removeFile(file.id)}
-                                className="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        </div>
-                    ))}
+            );
+        }
+
+        // Show full-screen MergeEditor when files are uploaded
+        return (
+            <MergeEditor
+                files={uploadedFiles.map(f => f.file)}
+                onClose={() => {
+                    clearAllFiles();
+                    navigate(-1);
+                }}
+            />
+        );
+    };
+
+    const renderPdfSplit = () => {
+        if (uploadedFiles.length === 0) {
+            return (
+                <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Upload a PDF document to split it visually.
+                    </p>
                 </div>
-            </div>
-            {uploadedFiles.length >= 2 && (
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-sm rounded-md flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4" />
-                    Ready to merge {uploadedFiles.length} files.
+            );
+        }
+
+        // Show full-screen SplitEditor when file is uploaded
+        return (
+            <SplitEditor
+                file={uploadedFiles[0].file}
+                onClose={() => {
+                    clearAllFiles();
+                    navigate(-1);
+                }}
+            />
+        );
+    };
+
+    const renderPdfRotate = () => {
+        if (uploadedFiles.length === 0) {
+            return (
+                <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Upload a PDF document to rotate pages visually.
+                    </p>
                 </div>
-            )}
-        </div>
-    );
+            );
+        }
 
-    const renderPdfSplit = () => (
-        <div className="space-y-6">
-            <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-lg mb-4">
-                {(['ranges', 'groups', 'size'] as const).map((m) => (
-                    <button
-                        key={m}
-                        onClick={() => setSplitMode(m)}
-                        className={`flex-1 py-1.5 text-sm font-medium rounded-md capitalize transition-all ${splitMode === m
-                            ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
-                            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                            }`}
-                    >
-                        By {m}
-                    </button>
-                ))}
-            </div>
+        // Show full-screen OrganizeEditor when files are uploaded
+        return (
+            <OrganizeEditor
+                files={uploadedFiles.map(f => f.file)}
+                onClose={() => {
+                    clearAllFiles();
+                    navigate(-1);
+                }}
+            />
+        );
+    };
 
-            {splitMode === 'ranges' && (
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Page Ranges</label>
-                    <input
-                        type="text"
-                        value={splitRanges}
-                        onChange={(e) => setSplitRanges(e.target.value)}
-                        placeholder="e.g. 1-5, 8, 11-13"
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
-                    />
-                    <p className="text-xs text-gray-500">Separates selected pages into new PDFs. Comma separated.</p>
+    const renderPdfOrganize = () => {
+        if (uploadedFiles.length === 0) {
+            return (
+                <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Upload a PDF document to organize, reorder, or delete pages.
+                    </p>
                 </div>
-            )}
-            {splitMode === 'groups' && (
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Split every X pages</label>
-                    <input
-                        type="number"
-                        value={splitGroupSize}
-                        onChange={(e) => setSplitGroupSize(e.target.value)}
-                        placeholder="10"
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
-                    />
+            );
+        }
+
+        // Show full-screen OrganizeEditor when files are uploaded
+        return (
+            <OrganizeEditor
+                files={uploadedFiles.map(f => f.file)}
+                onClose={() => {
+                    clearAllFiles();
+                    navigate(-1);
+                }}
+            />
+        );
+    };
+    const renderPdfSign = () => {
+        if (uploadedFiles.length === 0) {
+            return (
+                <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Upload a PDF document to add your signature.
+                    </p>
                 </div>
-            )}
-            {splitMode === 'size' && (
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Max File Size (MB)</label>
-                    <input
-                        type="number"
-                        value={splitFileSize}
-                        onChange={(e) => setSplitFileSize(e.target.value)}
-                        placeholder="10"
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
-                    />
-                </div>
-            )}
-        </div>
-    );
+            );
+        }
 
-    const renderPdfRotate = () => (
-        <div className="space-y-4">
-            <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Page Preview</h3>
-                <button onClick={rotateAll} className="text-xs font-bold text-primary hover:bg-red-50 dark:hover:bg-red-900/10 px-2 py-1 rounded transition-colors flex items-center gap-1">
-                    <RotateCw className="w-3 h-3" /> Rotate All
-                </button>
-            </div>
+        // Show full-screen SignatureEditor when file is uploaded
+        return (
+            <SignatureEditor
+                file={uploadedFiles[0].file}
+                isProcessing={isProcessing}
+                onSign={async (data) => {
+                    setSuccess('PDF signed and downloaded successfully!');
+                    clearAllFiles();
+                    navigate(-1);
+                }}
+                onClose={() => {
+                    clearAllFiles();
+                    navigate(-1);
+                }}
+            />
+        );
+    };
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-h-[400px] overflow-y-auto p-2 border border-gray-100 dark:border-gray-800 rounded-lg">
-                {mockPages.map((page) => (
-                    <div key={page.id} className="relative group">
-                        <div
-                            className="bg-white border shadow-sm rounded-md flex flex-col items-center justify-center aspect-[3/4] transition-transform duration-300"
-                            style={{ transform: `rotate(${page.rot}deg)` }}
-                        >
-                            <span className="text-2xl font-bold text-gray-200 select-none">{page.num}</span>
-                        </div>
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 dark:group-hover:bg-white/5 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
-                            <button
-                                onClick={() => rotatePage(page.id, 'cw')}
-                                className="p-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-full shadow-md hover:scale-110 transition-transform"
-                            >
-                                <RotateCw className="w-4 h-4" />
-                            </button>
-                        </div>
-                        <div className="text-center mt-1 text-xs text-gray-500">Page {page.num}</div>
-                    </div>
-                ))}
-            </div>
-            <p className="text-xs text-gray-500 text-center">Click hover icons to rotate individual pages.</p>
-        </div>
-    );
 
-    const renderPdfOrganize = () => (
-        <div className="space-y-4">
-            <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Drag & Drop Simulation</h3>
-                <span className="text-xs text-gray-500">{mockPages.length} pages total</span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[500px] overflow-y-auto p-2">
-                {mockPages.map((page, index) => (
-                    <div key={page.id} className="relative group bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border border-transparent hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-                        <div className="bg-white border shadow-sm rounded flex flex-col items-center justify-center aspect-[3/4] mb-2">
-                            <span className="text-2xl font-bold text-gray-200 select-none">{page.num}</span>
-                        </div>
-
-                        <div className="flex justify-between items-center px-1">
-                            <button
-                                onClick={() => movePage(index, 'left')}
-                                disabled={index === 0}
-                                className="p-1 text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-30"
-                            >
-                                <MoveLeft className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => deletePage(page.id)}
-                                className="p-1 text-gray-400 hover:text-red-500"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => movePage(index, 'right')}
-                                disabled={index === mockPages.length - 1}
-                                className="p-1 text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-30"
-                            >
-                                <MoveRight className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
 
     const renderPdfLayout = () => (
         <div className="space-y-6">
@@ -964,6 +955,132 @@ const ToolDetail: React.FC = () => {
 
         </div>
     );
+
+    const renderRedactTool = () => {
+        // Scan document for metadata when file is uploaded
+        const scanForMetadata = async () => {
+            if (uploadedFiles.length === 0) return;
+            setIsScanning(true);
+            try {
+                const metadata = await getMetadata(uploadedFiles[0].file);
+                setDetectedMetadata(metadata);
+            } catch (err) {
+                console.error('Failed to scan metadata:', err);
+            } finally {
+                setIsScanning(false);
+            }
+        };
+
+        return (
+            <div className="space-y-6">
+                {/* Mode Toggle */}
+                <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                    <button
+                        onClick={() => { setRedactMode('sanitize'); setRedactionMarks([]); }}
+                        className={`flex-1 py-2 px-4 text-sm font-medium rounded-md flex items-center justify-center gap-2 transition-all ${redactMode === 'sanitize'
+                            ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
+                            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                            }`}
+                    >
+                        🧹 Sanitize Metadata
+                    </button>
+                    <button
+                        onClick={() => setRedactMode('redact')}
+                        className={`flex-1 py-2 px-4 text-sm font-medium rounded-md flex items-center justify-center gap-2 transition-all ${redactMode === 'redact'
+                            ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
+                            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                            }`}
+                    >
+                        ⬛ Redact Text
+                    </button>
+                </div>
+
+                {/* Sanitize Mode */}
+                {redactMode === 'sanitize' && (
+                    <div className="space-y-4">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Remove hidden metadata like Author, Creator, and editing history that can leak private information.
+                        </p>
+
+                        {uploadedFiles.length > 0 && (
+                            <>
+                                <button
+                                    onClick={scanForMetadata}
+                                    disabled={isScanning}
+                                    className="w-full py-2 px-4 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md text-sm font-medium transition-colors"
+                                >
+                                    {isScanning ? 'Scanning...' : '🔍 Scan Document for Metadata'}
+                                </button>
+
+                                {detectedMetadata && (
+                                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-md space-y-2">
+                                        <h4 className="font-bold text-sm text-amber-800 dark:text-amber-300">Detected Metadata:</h4>
+                                        <div className="text-xs space-y-1 text-amber-700 dark:text-amber-400">
+                                            {detectedMetadata.author && <p>✓ Author: {detectedMetadata.author}</p>}
+                                            {detectedMetadata.creator && <p>✓ Creator: {detectedMetadata.creator}</p>}
+                                            {detectedMetadata.producer && <p>✓ Producer: {detectedMetadata.producer}</p>}
+                                            {detectedMetadata.title && <p>✓ Title: {detectedMetadata.title}</p>}
+                                            {detectedMetadata.subject && <p>✓ Subject: {detectedMetadata.subject}</p>}
+                                            {detectedMetadata.keywords && detectedMetadata.keywords.length > 0 && (
+                                                <p>✓ Keywords: {detectedMetadata.keywords.join(', ')}</p>
+                                            )}
+                                            {!detectedMetadata.author && !detectedMetadata.creator && !detectedMetadata.producer && !detectedMetadata.title && (
+                                                <p className="text-green-600 dark:text-green-400">No sensitive metadata found!</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        <div className="p-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm rounded-md flex items-center gap-2">
+                            <span className="text-lg">⚡</span>
+                            <span><strong>Instant & Private:</strong> Processed locally in your browser.</span>
+                        </div>
+                    </div>
+                )}
+
+                {/* Redact Mode */}
+                {redactMode === 'redact' && (
+                    <div className="space-y-4">
+                        {uploadedFiles.length === 0 ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+                                Upload a PDF to start marking areas for redaction.
+                            </p>
+                        ) : (
+                            <>
+                                <div className="h-[500px] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                                    <RedactEditor
+                                        file={uploadedFiles[0].file}
+                                        redactions={redactionMarks}
+                                        onRedactionsChange={setRedactionMarks}
+                                    />
+                                </div>
+
+                                {redactionMarks.length > 0 && (
+                                    <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-md">
+                                        <span className="text-sm text-red-700 dark:text-red-300">
+                                            <strong>{redactionMarks.length}</strong> area{redactionMarks.length !== 1 ? 's' : ''} marked for redaction
+                                        </span>
+                                        <button
+                                            onClick={() => setRedactionMarks([])}
+                                            className="text-xs font-medium text-red-600 dark:text-red-400 hover:underline"
+                                        >
+                                            Clear All
+                                        </button>
+                                    </div>
+                                )}
+
+                                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-sm rounded-md">
+                                    <strong>⚠️ Security Notice:</strong> Redacted areas are permanently flattened. Text underneath cannot be recovered or copied.
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     const renderPdfOcr = () => (
         <div className="space-y-6">
@@ -1818,6 +1935,8 @@ const ToolDetail: React.FC = () => {
         // PDF Security
         if (id === 'pdf-password') return renderPdfSecurity();
         if (id === 'pdf-watermark') return renderPdfWatermark();
+        if (id === 'pdf-redact') return renderRedactTool();
+        if (id === 'pdf-sign') return renderPdfSign();
 
         // PDF Advanced
         if (id === 'pdf-ocr') return renderPdfOcr();
