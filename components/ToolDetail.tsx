@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft, Upload, Download, Loader2, AlertCircle,
@@ -7,11 +7,8 @@ import {
 } from 'lucide-react';
 import { TOOLS } from '../constants';
 import * as api from '../services/api';
-import * as pdfClient from '../services/pdfClientUtils';
-import SignatureEditor, { SignatureData } from './SignatureEditor';
-import MergeEditor from './MergeEditor';
-import SplitEditor from './SplitEditor';
-import OrganizeEditor from './OrganizeEditor';
+import { checkPdfEncryption, unlockPdf, downloadBlob as clientDownloadBlob } from '../services/pdfClientUtils';
+import { IoIosLock, IoIosUnlock } from 'react-icons/io';
 
 // Types
 interface UploadedFile {
@@ -65,6 +62,8 @@ const ToolDetail: React.FC = () => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [useAes, setUseAes] = useState(true);
+    const [securityMode, setSecurityMode] = useState<'add' | 'remove'>('add');
+    const [isEncrypted, setIsEncrypted] = useState<boolean | null>(null);
     const [ocrLanguage, setOcrLanguage] = useState('eng');
     const [ocrDeskew, setOcrDeskew] = useState(true);
     const [ocrClean, setOcrClean] = useState(false);
@@ -84,11 +83,6 @@ const ToolDetail: React.FC = () => {
 
     // URL to PDF
     const [urlInput, setUrlInput] = useState('');
-
-    // PDF to Office state
-    const [officeFormat, setOfficeFormat] = useState<'docx' | 'xlsx' | 'pptx'>('docx');
-    const [ocrForScanned, setOcrForScanned] = useState(false); // Only for scanned/image-based PDFs
-
 
     // Image States
     const [width, setWidth] = useState(1920);
@@ -184,6 +178,17 @@ const ToolDetail: React.FC = () => {
         setValidationError(null);
     };
 
+    // Check encryption when file changes (for pdf-password tool)
+    useEffect(() => {
+        if (id === 'pdf-password' && uploadedFiles.length > 0) {
+            checkPdfEncryption(uploadedFiles[0].file)
+                .then(setIsEncrypted)
+                .catch(() => setIsEncrypted(null));
+        } else {
+            setIsEncrypted(null);
+        }
+    }, [uploadedFiles, id]);
+
     // Simulate progress for realistic feedback during processing
     const simulateProgress = (duration: number = 10000) => {
         setProcessingProgress(5);
@@ -263,71 +268,34 @@ const ToolDetail: React.FC = () => {
             const files = uploadedFiles.map(f => f.file);
 
             switch (id) {
-                // PDF Page Ops - CLIENT-SIDE (INSTANT!)
-                case 'pdf-merge': {
+                // PDF Page Ops
+                case 'pdf-merge':
                     if (files.length < 2) throw new Error('Please upload at least 2 PDF files');
-                    // Validate all files are PDFs
-                    const nonPdfFiles = files.filter(f => !f.name.toLowerCase().endsWith('.pdf'));
-                    if (nonPdfFiles.length > 0) {
-                        throw new Error(`Invalid file(s): ${nonPdfFiles.map(f => f.name).join(', ')}. Only PDF files can be merged.`);
-                    }
-                    setProcessingMessage('Merging PDFs... (processing locally)');
-                    const mergedBlob = await pdfClient.mergePdfs(files);
-                    pdfClient.downloadBlob(mergedBlob, 'merged.pdf');
-                    result = { success: true };
+                    result = await api.mergePDFs(files);
                     break;
-                }
 
-                case 'pdf-split': {
+                case 'pdf-split':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
-                    setProcessingMessage('Splitting PDF... (processing locally)');
-                    let splitFiles;
-                    if (splitMode === 'every') {
-                        splitFiles = await pdfClient.splitPdf(files[0], {
-                            mode: 'every',
-                            everyN: splitGroupSize ? parseInt(splitGroupSize) : 1
-                        });
-                    } else if (splitMode === 'ranges' && splitRanges) {
-                        splitFiles = await pdfClient.splitPdf(files[0], {
-                            mode: 'range',
-                            ranges: splitRanges
-                        });
-                    } else {
-                        splitFiles = await pdfClient.splitPdf(files[0], { mode: 'all' });
-                    }
-                    await pdfClient.downloadMultiple(splitFiles);
-                    result = { success: true };
+                    result = await api.splitPDF(files[0], splitMode, {
+                        ranges: splitRanges,
+                        groupSize: splitGroupSize ? parseInt(splitGroupSize) : undefined,
+                        maxSizeMb: splitFileSize ? parseFloat(splitFileSize) : undefined
+                    });
                     break;
-                }
 
-                case 'pdf-rotate': {
+                case 'pdf-rotate':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
-                    setProcessingMessage('Rotating PDF... (processing locally)');
-                    // Get rotation angle from first rotated page (or default 90)
-                    const firstRotated = mockPages.find(p => p.rot !== 0);
-                    const angle = (firstRotated?.rot || 90) as pdfClient.RotationAngle;
-
-                    // Get pages with rotation
-                    const pagesToRotate = mockPages.filter(p => p.rot !== 0).map(p => p.num);
-                    const rotatedBlob = await pdfClient.rotatePdf(
-                        files[0],
-                        angle,
-                        pagesToRotate.length > 0 ? pagesToRotate : undefined
-                    );
-                    pdfClient.downloadBlob(rotatedBlob, `${files[0].name.replace(/\.pdf$/i, '')}_rotated.pdf`);
-                    result = { success: true };
+                    const rotations: Record<number, number> = {};
+                    mockPages.forEach(p => {
+                        if (p.rot !== 0) rotations[p.num] = p.rot;
+                    });
+                    result = await api.rotatePDF(files[0], Object.keys(rotations).length > 0 ? rotations : 'all:0');
                     break;
-                }
 
-                case 'pdf-organize': {
+                case 'pdf-organize':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
-                    setProcessingMessage('Organizing PDF... (processing locally)');
-                    const newOrder = mockPages.map(p => p.num);
-                    const organizedBlob = await pdfClient.reorderPages(files[0], newOrder);
-                    pdfClient.downloadBlob(organizedBlob, `${files[0].name.replace(/\.pdf$/i, '')}_organized.pdf`);
-                    result = { success: true };
+                    result = await api.organizePDF(files[0], mockPages.map(p => p.num));
                     break;
-                }
 
                 case 'pdf-layout':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
@@ -338,23 +306,36 @@ const ToolDetail: React.FC = () => {
                 case 'pdf-password':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
                     if (!password) throw new Error('Please enter a password');
-                    if (password !== confirmPassword) throw new Error('Passwords do not match');
-                    result = await api.addPDFPassword(files[0], password, useAes);
+
+                    if (securityMode === 'add') {
+                        // Add password - use server API
+                        if (password !== confirmPassword) throw new Error('Passwords do not match');
+                        result = await api.addPDFPassword(files[0], password, useAes);
+                    } else {
+                        // Remove password - client-side instant processing!
+                        setProcessingMessage('Unlocking PDF locally... ⚡');
+                        try {
+                            const unlockedBlob = await unlockPdf(files[0], password);
+                            const filename = files[0].name.replace('.pdf', '_unlocked.pdf');
+                            clientDownloadBlob(unlockedBlob, filename);
+                            setSuccess('PDF unlocked! File downloaded instantly.');
+                            setIsProcessing(false);
+                            return; // Early return - we handled the download ourselves
+                        } catch (err) {
+                            throw new Error(err instanceof Error ? err.message : 'Failed to unlock PDF');
+                        }
+                    }
                     break;
 
-                case 'pdf-watermark': {
+                case 'pdf-watermark':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
                     if (!watermarkText) throw new Error('Please enter watermark text');
-                    setProcessingMessage('Adding watermark... (processing locally)');
-                    const watermarkedBlob = await pdfClient.addWatermark(files[0], {
+                    result = await api.addPDFWatermark(files[0], {
                         text: watermarkText,
                         opacity: watermarkOpacity,
-                        position: watermarkPosition as 'center' | 'diagonal' | 'top' | 'bottom'
+                        position: watermarkPosition
                     });
-                    pdfClient.downloadBlob(watermarkedBlob, `${files[0].name.replace(/\.pdf$/i, '')}_watermarked.pdf`);
-                    result = { success: true };
                     break;
-                }
 
                 case 'pdf-metadata':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
@@ -389,8 +370,7 @@ const ToolDetail: React.FC = () => {
 
                 case 'pdf-to-office':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
-                    setProcessingMessage(ocrForScanned ? 'OCR + Converting to Office format...' : 'Converting to Office format...');
-                    result = await api.pdfToOffice(files[0], officeFormat, ocrForScanned);
+                    result = await api.pdfToOffice(files[0], 'docx');
                     break;
 
                 case 'file-to-pdf':
@@ -703,99 +683,184 @@ const ToolDetail: React.FC = () => {
     };
 
     // --- UI Renderers ---
-    const renderPdfMerge = () => {
-        if (uploadedFiles.length === 0) {
-            return (
-                <div className="text-center py-8">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Upload 2 or more PDF documents to merge them.
-                    </p>
+    const renderPdfMerge = () => (
+        <div className="space-y-4">
+            <div className="space-y-2">
+                <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Files to Merge</label>
+                    {uploadedFiles.length > 0 && (
+                        <button
+                            onClick={clearAllFiles}
+                            className="text-xs text-primary font-bold hover:underline"
+                        >
+                            Clear All
+                        </button>
+                    )}
                 </div>
-            );
-        }
-
-        // Show full-screen MergeEditor when files are uploaded
-        return (
-            <MergeEditor
-                files={uploadedFiles.map(f => f.file)}
-                onClose={() => {
-                    clearAllFiles();
-                    navigate(-1);
-                }}
-            />
-        );
-    };
-
-    const renderPdfSplit = () => {
-        if (uploadedFiles.length === 0) {
-            return (
-                <div className="text-center py-8">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Upload a PDF document to split it visually.
-                    </p>
+                <div className="space-y-2">
+                    {uploadedFiles.map((file) => (
+                        <div key={file.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md group hover:border-primary/30 transition-colors">
+                            <div className="flex items-center gap-3">
+                                <GripVertical className="w-4 h-4 text-gray-400 cursor-move" />
+                                <div className="h-8 w-8 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center text-red-500">
+                                    <FileText className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-gray-900 dark:text-gray-200">{file.name}</p>
+                                    <p className="text-xs text-gray-500">{file.size}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => removeFile(file.id)}
+                                className="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ))}
                 </div>
-            );
-        }
-
-        // Show full-screen SplitEditor when file is uploaded
-        return (
-            <SplitEditor
-                file={uploadedFiles[0].file}
-                onClose={() => {
-                    clearAllFiles();
-                    navigate(-1);
-                }}
-            />
-        );
-    };
-
-    const renderPdfRotate = () => {
-        if (uploadedFiles.length === 0) {
-            return (
-                <div className="text-center py-8">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Upload a PDF document to rotate pages visually.
-                    </p>
+            </div>
+            {uploadedFiles.length >= 2 && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-sm rounded-md flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    Ready to merge {uploadedFiles.length} files.
                 </div>
-            );
-        }
+            )}
+        </div>
+    );
 
-        // Show full-screen OrganizeEditor when files are uploaded
-        return (
-            <OrganizeEditor
-                files={uploadedFiles.map(f => f.file)}
-                onClose={() => {
-                    clearAllFiles();
-                    navigate(-1);
-                }}
-                onAddMoreFiles={() => fileInputRef.current?.click()}
-            />
-        );
-    };
+    const renderPdfSplit = () => (
+        <div className="space-y-6">
+            <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-lg mb-4">
+                {(['ranges', 'groups', 'size'] as const).map((m) => (
+                    <button
+                        key={m}
+                        onClick={() => setSplitMode(m)}
+                        className={`flex-1 py-1.5 text-sm font-medium rounded-md capitalize transition-all ${splitMode === m
+                            ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
+                            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                            }`}
+                    >
+                        By {m}
+                    </button>
+                ))}
+            </div>
 
-    const renderPdfOrganize = () => {
-        if (uploadedFiles.length === 0) {
-            return (
-                <div className="text-center py-8">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Upload a PDF document to organize, reorder, or delete pages.
-                    </p>
+            {splitMode === 'ranges' && (
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Page Ranges</label>
+                    <input
+                        type="text"
+                        value={splitRanges}
+                        onChange={(e) => setSplitRanges(e.target.value)}
+                        placeholder="e.g. 1-5, 8, 11-13"
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
+                    />
+                    <p className="text-xs text-gray-500">Separates selected pages into new PDFs. Comma separated.</p>
                 </div>
-            );
-        }
+            )}
+            {splitMode === 'groups' && (
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Split every X pages</label>
+                    <input
+                        type="number"
+                        value={splitGroupSize}
+                        onChange={(e) => setSplitGroupSize(e.target.value)}
+                        placeholder="10"
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
+                    />
+                </div>
+            )}
+            {splitMode === 'size' && (
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Max File Size (MB)</label>
+                    <input
+                        type="number"
+                        value={splitFileSize}
+                        onChange={(e) => setSplitFileSize(e.target.value)}
+                        placeholder="10"
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
+                    />
+                </div>
+            )}
+        </div>
+    );
 
-        // Show full-screen OrganizeEditor when files are uploaded
-        return (
-            <OrganizeEditor
-                files={uploadedFiles.map(f => f.file)}
-                onClose={() => {
-                    clearAllFiles();
-                    navigate(-1);
-                }}
-                onAddMoreFiles={() => fileInputRef.current?.click()}
-            />
-        );
-    };
+    const renderPdfRotate = () => (
+        <div className="space-y-4">
+            <div className="flex justify-between items-center mb-2">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Page Preview</h3>
+                <button onClick={rotateAll} className="text-xs font-bold text-primary hover:bg-red-50 dark:hover:bg-red-900/10 px-2 py-1 rounded transition-colors flex items-center gap-1">
+                    <RotateCw className="w-3 h-3" /> Rotate All
+                </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-h-[400px] overflow-y-auto p-2 border border-gray-100 dark:border-gray-800 rounded-lg">
+                {mockPages.map((page) => (
+                    <div key={page.id} className="relative group">
+                        <div
+                            className="bg-white border shadow-sm rounded-md flex flex-col items-center justify-center aspect-[3/4] transition-transform duration-300"
+                            style={{ transform: `rotate(${page.rot}deg)` }}
+                        >
+                            <span className="text-2xl font-bold text-gray-200 select-none">{page.num}</span>
+                        </div>
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 dark:group-hover:bg-white/5 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
+                            <button
+                                onClick={() => rotatePage(page.id, 'cw')}
+                                className="p-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-full shadow-md hover:scale-110 transition-transform"
+                            >
+                                <RotateCw className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <div className="text-center mt-1 text-xs text-gray-500">Page {page.num}</div>
+                    </div>
+                ))}
+            </div>
+            <p className="text-xs text-gray-500 text-center">Click hover icons to rotate individual pages.</p>
+        </div>
+    );
+
+    const renderPdfOrganize = () => (
+        <div className="space-y-4">
+            <div className="flex justify-between items-center mb-2">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Drag & Drop Simulation</h3>
+                <span className="text-xs text-gray-500">{mockPages.length} pages total</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[500px] overflow-y-auto p-2">
+                {mockPages.map((page, index) => (
+                    <div key={page.id} className="relative group bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border border-transparent hover:border-gray-300 dark:hover:border-gray-600 transition-all">
+                        <div className="bg-white border shadow-sm rounded flex flex-col items-center justify-center aspect-[3/4] mb-2">
+                            <span className="text-2xl font-bold text-gray-200 select-none">{page.num}</span>
+                        </div>
+
+                        <div className="flex justify-between items-center px-1">
+                            <button
+                                onClick={() => movePage(index, 'left')}
+                                disabled={index === 0}
+                                className="p-1 text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-30"
+                            >
+                                <MoveLeft className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => deletePage(page.id)}
+                                className="p-1 text-gray-400 hover:text-red-500"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => movePage(index, 'right')}
+                                disabled={index === mockPages.length - 1}
+                                className="p-1 text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-30"
+                            >
+                                <MoveRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
 
     const renderPdfLayout = () => (
         <div className="space-y-6">
@@ -852,36 +917,89 @@ const ToolDetail: React.FC = () => {
 
     const renderPdfSecurity = () => (
         <div className="space-y-6">
+            {/* Mode Toggle */}
+            <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                <button
+                    onClick={() => setSecurityMode('add')}
+                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${securityMode === 'add'
+                        ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
+                        : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                >
+                    <IoIosLock className="w-4 h-4" /> Add Password
+                </button>
+                <button
+                    onClick={() => setSecurityMode('remove')}
+                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${securityMode === 'remove'
+                        ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
+                        : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                >
+                    <IoIosUnlock className="w-4 h-4" /> Remove Password
+                </button>
+            </div>
+
+            {/* Encryption Status Badge */}
+            {isEncrypted !== null && securityMode === 'remove' && (
+                <div className={`p-3 rounded-md text-sm flex items-center gap-2 ${isEncrypted
+                    ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                    : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800'
+                    }`}>
+                    {isEncrypted ? (
+                        <><IoIosLock className="w-5 h-5" /> This PDF has restrictions. Enter password to unlock.</>
+                    ) : (
+                        <><CheckCircle className="w-4 h-4" /> This PDF is not restricted.</>
+                    )}
+                </div>
+            )}
+
+            {/* Password Input */}
             <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Password</label>
+                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
+                    {securityMode === 'add' ? 'New Password' : 'Current Password'}
+                </label>
                 <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter password to encrypt"
+                    placeholder={securityMode === 'add' ? 'Enter password to encrypt' : 'Enter password to unlock'}
                     className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
                 />
             </div>
-            <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Confirm Password</label>
-                <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm password"
-                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
-                />
-            </div>
-            <div className="flex items-center gap-2">
-                <input
-                    type="checkbox"
-                    id="aes"
-                    checked={useAes}
-                    onChange={(e) => setUseAes(e.target.checked)}
-                    className="rounded text-primary focus:ring-primary"
-                />
-                <label htmlFor="aes" className="text-sm text-gray-700 dark:text-gray-300">Use AES-256 Encryption (Recommended)</label>
-            </div>
+
+            {/* Confirm Password - only for Add mode */}
+            {securityMode === 'add' && (
+                <>
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Confirm Password</label>
+                        <input
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Confirm password"
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
+                        />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="checkbox"
+                            id="aes"
+                            checked={useAes}
+                            onChange={(e) => setUseAes(e.target.checked)}
+                            className="rounded text-primary focus:ring-primary"
+                        />
+                        <label htmlFor="aes" className="text-sm text-gray-700 dark:text-gray-300">Use AES-256 Encryption (Recommended)</label>
+                    </div>
+                </>
+            )}
+
+            {/* Client-Side Badge for Remove mode */}
+            {securityMode === 'remove' && (
+                <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 text-green-700 dark:text-green-300 text-sm rounded-md flex items-center gap-2 border border-green-200 dark:border-green-800">
+                    <span className="text-lg animate-pulse">⚡</span>
+                    <span><strong>Instant & Private:</strong> PDF is processed locally. Your file never leaves your device.</span>
+                </div>
+            )}
         </div>
     );
 
@@ -993,34 +1111,6 @@ const ToolDetail: React.FC = () => {
             </div>
         </div>
     );
-
-    // PDF Sign Handler - now just updates UI state (download happens client-side in SignatureEditor)
-    const handleSignPdf = useCallback(async (_signatureData: { signatures: SignatureData[] }) => {
-        // SignatureEditor handles the actual signing and download client-side
-        // This callback just updates the UI state
-        setSuccess('PDF signed successfully!');
-    }, []);
-
-    const renderPdfSign = () => {
-        if (uploadedFiles.length === 0) {
-            return (
-                <div className="text-center py-8">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Upload a PDF document to start signing.
-                    </p>
-                </div>
-            );
-        }
-
-        return (
-            <SignatureEditor
-                file={uploadedFiles[0].file}
-                onSign={handleSignPdf}
-                isProcessing={isProcessing}
-            />
-        );
-    };
-
 
     const renderPdfCompress = () => (
         <div className="space-y-6">
@@ -1766,7 +1856,6 @@ const ToolDetail: React.FC = () => {
         // PDF Security
         if (id === 'pdf-password') return renderPdfSecurity();
         if (id === 'pdf-watermark') return renderPdfWatermark();
-        if (id === 'pdf-sign') return renderPdfSign();
 
         // PDF Advanced
         if (id === 'pdf-ocr') return renderPdfOcr();
@@ -1840,65 +1929,8 @@ const ToolDetail: React.FC = () => {
         return '*';
     })();
 
-    // PDF Sign uses full-width layout like Stirling PDF
-    const isFullWidthTool = id === 'pdf-sign';
-
-    // Special full-width layout for pdf-sign
-    if (isFullWidthTool && uploadedFiles.length > 0) {
-        return (
-            <div className="h-[calc(100vh-120px)] flex flex-col">
-                {/* Header */}
-                <div className="flex items-center gap-4 mb-4">
-                    <button
-                        onClick={() => navigate('/tools')}
-                        className="flex items-center space-x-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        <span className="font-bold text-sm">Back to Toolbox</span>
-                    </button>
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 dark:from-primary/30 dark:to-primary/20 flex items-center justify-center text-primary">
-                            <tool.icon className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h1 className="text-lg font-bold text-gray-900 dark:text-white">{tool.title}</h1>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                                    {tool.badge}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex-1 min-h-0">
-                    <SignatureEditor
-                        file={uploadedFiles[0].file}
-                        onSign={handleSignPdf}
-                        isProcessing={isProcessing}
-                        onClose={() => navigate('/tools')}
-                    />
-                </div>
-
-                {/* Status messages */}
-                {error && (
-                    <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg flex items-center gap-2 text-red-700 dark:text-red-300">
-                        <AlertCircle className="w-4 h-4" />
-                        <span className="text-sm">{error}</span>
-                    </div>
-                )}
-                {success && (
-                    <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg flex items-center gap-2 text-green-700 dark:text-green-300">
-                        <CheckCircle className="w-4 h-4" />
-                        <span className="text-sm">{success}</span>
-                    </div>
-                )}
-            </div>
-        );
-    }
-
     return (
-        <div className={isFullWidthTool ? "" : "max-w-3xl mx-auto"}>
+        <div className="max-w-3xl mx-auto">
             <button
                 onClick={() => navigate('/tools')}
                 className="flex items-center space-x-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white mb-6 transition-colors"

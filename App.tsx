@@ -5,7 +5,7 @@ import SidebarLeft from './components/SidebarLeft';
 import SidebarRight from './components/SidebarRight';
 import Toolbox from './components/Toolbox';
 import ToolDetail from './components/ToolDetail';
-import VideoEditorRedirect from './components/VideoEditorRedirect';
+import VideoEditor from './components/VideoEditor';
 
 const App: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -35,22 +35,21 @@ const App: React.FC = () => {
     return (
         <HashRouter>
             <div className="min-h-screen bg-background-light dark:bg-background-dark transition-colors duration-200">
-                <Navbar
-                    toggleSidebar={toggleSidebar}
+                <Navbar 
+                    toggleSidebar={toggleSidebar} 
                     toggleDarkMode={toggleDarkMode}
                     isDarkMode={isDarkMode}
                 />
-
+                
                 <div className="flex max-w-[1600px] mx-auto pt-4 justify-center">
                     <SidebarLeft />
-
+                    
                     <main className="flex-1 px-0 md:px-4 lg:px-6 pb-10 min-w-0">
                         <Routes>
                             <Route path="/" element={<Navigate to="/tools" replace />} />
                             <Route path="/tools" element={<Toolbox />} />
                             <Route path="/tool/:id" element={<ToolDetail />} />
-                            <Route path="/video-editor" element={<VideoEditorRedirect />} />
-
+                            <Route path="/video-editor" element={<VideoEditor />} />
                             <Route path="*" element={<Navigate to="/tools" replace />} />
                         </Routes>
                     </main>

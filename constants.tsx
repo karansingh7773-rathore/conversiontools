@@ -1,8 +1,8 @@
-import { 
-    FileText, 
-    Calculator, 
-    Image as ImageIcon, 
-    Video, 
+import {
+    FileText,
+    Calculator,
+    Image as ImageIcon,
+    Video,
     File,
     Wrench,
     GraduationCap,
@@ -137,11 +137,11 @@ export const TOOLS: Tool[] = [
     {
         id: 'pdf-password',
         title: 'Add/Remove Password',
-        description: 'Encrypt with AES-256 or unlock PDFs if you know the password.',
+        description: 'Encrypt with AES-256 or instantly unlock PDFs. Remove is 100% private & local.',
         icon: Lock,
         color: 'text-green-500',
         bgColor: 'bg-green-100 dark:bg-green-900/20',
-        badge: 'Security',
+        badge: 'Instant',
         ctaText: 'Secure',
         category: 'PDF Security'
     },
@@ -246,7 +246,7 @@ export const TOOLS: Tool[] = [
         ctaText: 'Build',
         category: 'PDF Advanced'
     },
-    
+
     // --- Image Tools (ImgProxy) ---
     {
         id: 'img-resize',

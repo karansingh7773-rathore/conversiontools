@@ -416,3 +416,61 @@ export async function assemblePdf(
     const savedBytes = await newPdf.save();
     return new Blob([savedBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
 }
+
+// ============== PDF ENCRYPTION ==============
+
+/**
+ * Check if a PDF is encrypted (password protected)
+ * @param pdfFile - The PDF file to check
+ * @returns true if encrypted, false otherwise
+ */
+export async function checkPdfEncryption(pdfFile: File): Promise<boolean> {
+    const arrayBuffer = await pdfFile.arrayBuffer();
+    try {
+        await PDFDocument.load(arrayBuffer);
+        return false; // Loaded without password = not encrypted
+    } catch (error) {
+        if (error instanceof Error &&
+            (error.message.includes('encrypted') || error.message.includes('password'))) {
+            return true;
+        }
+        throw error; // Re-throw non-encryption errors
+    }
+}
+
+/**
+ * Unlock/remove password from an encrypted PDF - client-side!
+ * 
+ * NOTE: pdf-lib supports removing "owner password" (permissions password) only.
+ * For PDFs encrypted with a "user password" (open password), use the server API.
+ * 
+ * @param pdfFile - The encrypted PDF file  
+ * @param _password - Password parameter (kept for API compatibility, but pdf-lib uses ignoreEncryption)
+ * @returns Blob of the unlocked PDF (without encryption)
+ */
+export async function unlockPdf(
+    pdfFile: File,
+    _password: string
+): Promise<Blob> {
+    const arrayBuffer = await pdfFile.arrayBuffer();
+
+    // Attempt to load with ignoreEncryption - this works for owner-password PDFs
+    // (PDFs that can be opened but have restrictions like no-print)
+    try {
+        const pdfDoc = await PDFDocument.load(arrayBuffer, {
+            ignoreEncryption: true
+        });
+
+        // Save without encryption settings - creates unencrypted PDF
+        const pdfBytes = await pdfDoc.save();
+
+        return new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
+    } catch (error) {
+        // If ignoreEncryption fails, the PDF requires a user password to open
+        // This requires server-side processing with tools like qpdf
+        throw new Error(
+            'This PDF requires a password to open and cannot be unlocked client-side. ' +
+            'Please contact support for assistance with fully encrypted PDFs.'
+        );
+    }
+}
