@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft, Upload, Download, Loader2, AlertCircle,
@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { TOOLS } from '../constants';
 import * as api from '../services/api';
-import { checkPdfEncryption, unlockPdf, downloadBlob as clientDownloadBlob } from '../services/pdfClientUtils';
 import { IoIosLock, IoIosUnlock } from 'react-icons/io';
 
 // Types
@@ -63,7 +62,6 @@ const ToolDetail: React.FC = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [useAes, setUseAes] = useState(true);
     const [securityMode, setSecurityMode] = useState<'add' | 'remove'>('add');
-    const [isEncrypted, setIsEncrypted] = useState<boolean | null>(null);
     const [ocrLanguage, setOcrLanguage] = useState('eng');
     const [ocrDeskew, setOcrDeskew] = useState(true);
     const [ocrClean, setOcrClean] = useState(false);
@@ -178,16 +176,7 @@ const ToolDetail: React.FC = () => {
         setValidationError(null);
     };
 
-    // Check encryption when file changes (for pdf-password tool)
-    useEffect(() => {
-        if (id === 'pdf-password' && uploadedFiles.length > 0) {
-            checkPdfEncryption(uploadedFiles[0].file)
-                .then(setIsEncrypted)
-                .catch(() => setIsEncrypted(null));
-        } else {
-            setIsEncrypted(null);
-        }
-    }, [uploadedFiles, id]);
+
 
     // Simulate progress for realistic feedback during processing
     const simulateProgress = (duration: number = 10000) => {
@@ -312,18 +301,9 @@ const ToolDetail: React.FC = () => {
                         if (password !== confirmPassword) throw new Error('Passwords do not match');
                         result = await api.addPDFPassword(files[0], password, useAes);
                     } else {
-                        // Remove password - client-side instant processing!
-                        setProcessingMessage('Unlocking PDF locally... ⚡');
-                        try {
-                            const unlockedBlob = await unlockPdf(files[0], password);
-                            const filename = files[0].name.replace('.pdf', '_unlocked.pdf');
-                            clientDownloadBlob(unlockedBlob, filename);
-                            setSuccess('PDF unlocked! File downloaded instantly.');
-                            setIsProcessing(false);
-                            return; // Early return - we handled the download ourselves
-                        } catch (err) {
-                            throw new Error(err instanceof Error ? err.message : 'Failed to unlock PDF');
-                        }
+                        // Remove password - use server API (pdf-lib cannot decrypt user-password PDFs)
+                        setProcessingMessage('Removing password...');
+                        result = await api.removePDFPassword(files[0], password);
                     }
                     break;
 
@@ -939,19 +919,7 @@ const ToolDetail: React.FC = () => {
                 </button>
             </div>
 
-            {/* Encryption Status Badge */}
-            {isEncrypted !== null && securityMode === 'remove' && (
-                <div className={`p-3 rounded-md text-sm flex items-center gap-2 ${isEncrypted
-                    ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                    : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800'
-                    }`}>
-                    {isEncrypted ? (
-                        <><IoIosLock className="w-5 h-5" /> This PDF has restrictions. Enter password to unlock.</>
-                    ) : (
-                        <><CheckCircle className="w-4 h-4" /> This PDF is not restricted.</>
-                    )}
-                </div>
-            )}
+
 
             {/* Password Input */}
             <div className="space-y-2">
@@ -993,13 +961,7 @@ const ToolDetail: React.FC = () => {
                 </>
             )}
 
-            {/* Client-Side Badge for Remove mode */}
-            {securityMode === 'remove' && (
-                <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 text-green-700 dark:text-green-300 text-sm rounded-md flex items-center gap-2 border border-green-200 dark:border-green-800">
-                    <span className="text-lg animate-pulse">⚡</span>
-                    <span><strong>Instant & Private:</strong> PDF is processed locally. Your file never leaves your device.</span>
-                </div>
-            )}
+
         </div>
     );
 

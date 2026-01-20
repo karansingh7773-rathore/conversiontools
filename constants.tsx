@@ -110,17 +110,7 @@ export const TOOLS: Tool[] = [
         ctaText: 'Convert',
         category: 'PDF Office'
     },
-    {
-        id: 'url-to-pdf',
-        title: 'URL to PDF',
-        description: 'Capture a website URL and convert it into a PDF document.',
-        icon: Globe,
-        color: 'text-blue-500',
-        bgColor: 'bg-blue-100 dark:bg-blue-900/20',
-        badge: 'Puppeteer',
-        ctaText: 'Capture',
-        category: 'PDF Office'
-    },
+
     {
         id: 'images-to-pdf',
         title: 'Images to PDF',
@@ -137,11 +127,11 @@ export const TOOLS: Tool[] = [
     {
         id: 'pdf-password',
         title: 'Add/Remove Password',
-        description: 'Encrypt with AES-256 or instantly unlock PDFs. Remove is 100% private & local.',
+        description: 'Encrypt with AES-256 or unlock PDFs with the correct password.',
         icon: Lock,
         color: 'text-green-500',
         bgColor: 'bg-green-100 dark:bg-green-900/20',
-        badge: 'Instant',
+        badge: 'Security',
         ctaText: 'Secure',
         category: 'PDF Security'
     },
