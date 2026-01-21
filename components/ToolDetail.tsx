@@ -7,11 +7,7 @@ import {
 } from 'lucide-react';
 import { TOOLS } from '../constants';
 import * as api from '../services/api';
-import { IoIosLock, IoIosUnlock } from 'react-icons/io';
-import { RedactEditor, RedactionMark } from './RedactEditor';
-import { getMetadata, sanitizeMetadata, applyRedactions, downloadBlob, PdfMetadata } from '../services/pdfClientUtils';
-
-// Editors
+import * as pdfClient from '../services/pdfClientUtils';
 import SignatureEditor, { SignatureData } from './SignatureEditor';
 import MergeEditor from './MergeEditor';
 import SplitEditor from './SplitEditor';
@@ -69,7 +65,6 @@ const ToolDetail: React.FC = () => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [useAes, setUseAes] = useState(true);
-    const [securityMode, setSecurityMode] = useState<'add' | 'remove'>('add');
     const [ocrLanguage, setOcrLanguage] = useState('eng');
     const [ocrDeskew, setOcrDeskew] = useState(true);
     const [ocrClean, setOcrClean] = useState(false);
@@ -90,11 +85,10 @@ const ToolDetail: React.FC = () => {
     // URL to PDF
     const [urlInput, setUrlInput] = useState('');
 
-    // Redact & Sanitize state
-    const [redactMode, setRedactMode] = useState<'sanitize' | 'redact'>('sanitize');
-    const [redactionMarks, setRedactionMarks] = useState<RedactionMark[]>([]);
-    const [detectedMetadata, setDetectedMetadata] = useState<PdfMetadata | null>(null);
-    const [isScanning, setIsScanning] = useState(false);
+    // PDF to Office state
+    const [officeFormat, setOfficeFormat] = useState<'docx' | 'xlsx' | 'pptx'>('docx');
+    const [ocrForScanned, setOcrForScanned] = useState(false); // Only for scanned/image-based PDFs
+
 
     // Image States
     const [width, setWidth] = useState(1920);
@@ -190,8 +184,6 @@ const ToolDetail: React.FC = () => {
         setValidationError(null);
     };
 
-
-
     // Simulate progress for realistic feedback during processing
     const simulateProgress = (duration: number = 10000) => {
         setProcessingProgress(5);
@@ -271,34 +263,71 @@ const ToolDetail: React.FC = () => {
             const files = uploadedFiles.map(f => f.file);
 
             switch (id) {
-                // PDF Page Ops
-                case 'pdf-merge':
+                // PDF Page Ops - CLIENT-SIDE (INSTANT!)
+                case 'pdf-merge': {
                     if (files.length < 2) throw new Error('Please upload at least 2 PDF files');
-                    result = await api.mergePDFs(files);
+                    // Validate all files are PDFs
+                    const nonPdfFiles = files.filter(f => !f.name.toLowerCase().endsWith('.pdf'));
+                    if (nonPdfFiles.length > 0) {
+                        throw new Error(`Invalid file(s): ${nonPdfFiles.map(f => f.name).join(', ')}. Only PDF files can be merged.`);
+                    }
+                    setProcessingMessage('Merging PDFs... (processing locally)');
+                    const mergedBlob = await pdfClient.mergePdfs(files);
+                    pdfClient.downloadBlob(mergedBlob, 'merged.pdf');
+                    result = { success: true };
                     break;
+                }
 
-                case 'pdf-split':
+                case 'pdf-split': {
                     if (files.length === 0) throw new Error('Please upload a PDF file');
-                    result = await api.splitPDF(files[0], splitMode, {
-                        ranges: splitRanges,
-                        groupSize: splitGroupSize ? parseInt(splitGroupSize) : undefined,
-                        maxSizeMb: splitFileSize ? parseFloat(splitFileSize) : undefined
-                    });
+                    setProcessingMessage('Splitting PDF... (processing locally)');
+                    let splitFiles;
+                    if (splitMode === 'every') {
+                        splitFiles = await pdfClient.splitPdf(files[0], {
+                            mode: 'every',
+                            everyN: splitGroupSize ? parseInt(splitGroupSize) : 1
+                        });
+                    } else if (splitMode === 'ranges' && splitRanges) {
+                        splitFiles = await pdfClient.splitPdf(files[0], {
+                            mode: 'range',
+                            ranges: splitRanges
+                        });
+                    } else {
+                        splitFiles = await pdfClient.splitPdf(files[0], { mode: 'all' });
+                    }
+                    await pdfClient.downloadMultiple(splitFiles);
+                    result = { success: true };
                     break;
+                }
 
-                case 'pdf-rotate':
+                case 'pdf-rotate': {
                     if (files.length === 0) throw new Error('Please upload a PDF file');
-                    const rotations: Record<number, number> = {};
-                    mockPages.forEach(p => {
-                        if (p.rot !== 0) rotations[p.num] = p.rot;
-                    });
-                    result = await api.rotatePDF(files[0], Object.keys(rotations).length > 0 ? rotations : 'all:0');
-                    break;
+                    setProcessingMessage('Rotating PDF... (processing locally)');
+                    // Get rotation angle from first rotated page (or default 90)
+                    const firstRotated = mockPages.find(p => p.rot !== 0);
+                    const angle = (firstRotated?.rot || 90) as pdfClient.RotationAngle;
 
-                case 'pdf-organize':
-                    if (files.length === 0) throw new Error('Please upload a PDF file');
-                    result = await api.organizePDF(files[0], mockPages.map(p => p.num));
+                    // Get pages with rotation
+                    const pagesToRotate = mockPages.filter(p => p.rot !== 0).map(p => p.num);
+                    const rotatedBlob = await pdfClient.rotatePdf(
+                        files[0],
+                        angle,
+                        pagesToRotate.length > 0 ? pagesToRotate : undefined
+                    );
+                    pdfClient.downloadBlob(rotatedBlob, `${files[0].name.replace(/\.pdf$/i, '')}_rotated.pdf`);
+                    result = { success: true };
                     break;
+                }
+
+                case 'pdf-organize': {
+                    if (files.length === 0) throw new Error('Please upload a PDF file');
+                    setProcessingMessage('Organizing PDF... (processing locally)');
+                    const newOrder = mockPages.map(p => p.num);
+                    const organizedBlob = await pdfClient.reorderPages(files[0], newOrder);
+                    pdfClient.downloadBlob(organizedBlob, `${files[0].name.replace(/\.pdf$/i, '')}_organized.pdf`);
+                    result = { success: true };
+                    break;
+                }
 
                 case 'pdf-layout':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
@@ -309,27 +338,23 @@ const ToolDetail: React.FC = () => {
                 case 'pdf-password':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
                     if (!password) throw new Error('Please enter a password');
-
-                    if (securityMode === 'add') {
-                        // Add password - use server API
-                        if (password !== confirmPassword) throw new Error('Passwords do not match');
-                        result = await api.addPDFPassword(files[0], password, useAes);
-                    } else {
-                        // Remove password - use server API (pdf-lib cannot decrypt user-password PDFs)
-                        setProcessingMessage('Removing password...');
-                        result = await api.removePDFPassword(files[0], password);
-                    }
+                    if (password !== confirmPassword) throw new Error('Passwords do not match');
+                    result = await api.addPDFPassword(files[0], password, useAes);
                     break;
 
-                case 'pdf-watermark':
+                case 'pdf-watermark': {
                     if (files.length === 0) throw new Error('Please upload a PDF file');
                     if (!watermarkText) throw new Error('Please enter watermark text');
-                    result = await api.addPDFWatermark(files[0], {
+                    setProcessingMessage('Adding watermark... (processing locally)');
+                    const watermarkedBlob = await pdfClient.addWatermark(files[0], {
                         text: watermarkText,
                         opacity: watermarkOpacity,
-                        position: watermarkPosition
+                        position: watermarkPosition as 'center' | 'diagonal' | 'top' | 'bottom'
                     });
+                    pdfClient.downloadBlob(watermarkedBlob, `${files[0].name.replace(/\.pdf$/i, '')}_watermarked.pdf`);
+                    result = { success: true };
                     break;
+                }
 
                 case 'pdf-metadata':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
@@ -341,40 +366,6 @@ const ToolDetail: React.FC = () => {
                         creator: metaCreator || undefined
                     });
                     break;
-
-                case 'pdf-redact':
-                    if (files.length === 0) throw new Error('Please upload a PDF file');
-
-                    if (redactMode === 'sanitize') {
-                        // Client-side metadata removal
-                        setProcessingMessage('Removing metadata...');
-                        const sanitizedBlob = await sanitizeMetadata(files[0]);
-                        const filename = files[0].name.replace('.pdf', '_sanitized.pdf');
-                        downloadBlob(sanitizedBlob, filename);
-                        setSuccess('PDF sanitized! Metadata removed. File downloaded.');
-                        setIsProcessing(false);
-                        return;
-                    } else {
-                        // Client-side redaction with flatten strategy
-                        if (redactionMarks.length === 0) throw new Error('Please mark areas to redact');
-                        setProcessingMessage('Applying secure redactions...');
-                        const redactedBlob = await applyRedactions(
-                            files[0],
-                            redactionMarks.map(m => ({
-                                pageIndex: m.pageIndex,
-                                x: m.x,
-                                y: m.y,
-                                width: m.width,
-                                height: m.height
-                            }))
-                        );
-                        const filename = files[0].name.replace('.pdf', '_redacted.pdf');
-                        downloadBlob(redactedBlob, filename);
-                        setRedactionMarks([]);
-                        setSuccess('PDF redacted securely! Text under redactions is permanently removed.');
-                        setIsProcessing(false);
-                        return;
-                    }
 
                 // PDF Advanced (Stirling)
                 case 'pdf-ocr':
@@ -398,7 +389,8 @@ const ToolDetail: React.FC = () => {
 
                 case 'pdf-to-office':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
-                    result = await api.pdfToOffice(files[0], 'docx');
+                    setProcessingMessage(ocrForScanned ? 'OCR + Converting to Office format...' : 'Converting to Office format...');
+                    result = await api.pdfToOffice(files[0], officeFormat, ocrForScanned);
                     break;
 
                 case 'file-to-pdf':
@@ -802,36 +794,6 @@ const ToolDetail: React.FC = () => {
             />
         );
     };
-    const renderPdfSign = () => {
-        if (uploadedFiles.length === 0) {
-            return (
-                <div className="text-center py-8">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Upload a PDF document to add your signature.
-                    </p>
-                </div>
-            );
-        }
-
-        // Show full-screen SignatureEditor when file is uploaded
-        return (
-            <SignatureEditor
-                file={uploadedFiles[0].file}
-                isProcessing={isProcessing}
-                onSign={async (data) => {
-                    setSuccess('PDF signed and downloaded successfully!');
-                    clearAllFiles();
-                    navigate(-1);
-                }}
-                onClose={() => {
-                    clearAllFiles();
-                    navigate(-1);
-                }}
-            />
-        );
-    };
-
-
 
     const renderPdfLayout = () => (
         <div className="space-y-6">
@@ -888,199 +850,38 @@ const ToolDetail: React.FC = () => {
 
     const renderPdfSecurity = () => (
         <div className="space-y-6">
-            {/* Mode Toggle */}
-            <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                <button
-                    onClick={() => setSecurityMode('add')}
-                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${securityMode === 'add'
-                        ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
-                        : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                        }`}
-                >
-                    <IoIosLock className="w-4 h-4" /> Add Password
-                </button>
-                <button
-                    onClick={() => setSecurityMode('remove')}
-                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${securityMode === 'remove'
-                        ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
-                        : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                        }`}
-                >
-                    <IoIosUnlock className="w-4 h-4" /> Remove Password
-                </button>
-            </div>
-
-
-
-            {/* Password Input */}
             <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
-                    {securityMode === 'add' ? 'New Password' : 'Current Password'}
-                </label>
+                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Password</label>
                 <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder={securityMode === 'add' ? 'Enter password to encrypt' : 'Enter password to unlock'}
+                    placeholder="Enter password to encrypt"
                     className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
                 />
             </div>
-
-            {/* Confirm Password - only for Add mode */}
-            {securityMode === 'add' && (
-                <>
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Confirm Password</label>
-                        <input
-                            type="password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Confirm password"
-                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
-                        />
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            id="aes"
-                            checked={useAes}
-                            onChange={(e) => setUseAes(e.target.checked)}
-                            className="rounded text-primary focus:ring-primary"
-                        />
-                        <label htmlFor="aes" className="text-sm text-gray-700 dark:text-gray-300">Use AES-256 Encryption (Recommended)</label>
-                    </div>
-                </>
-            )}
-
-
+            <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Confirm Password</label>
+                <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm password"
+                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
+                />
+            </div>
+            <div className="flex items-center gap-2">
+                <input
+                    type="checkbox"
+                    id="aes"
+                    checked={useAes}
+                    onChange={(e) => setUseAes(e.target.checked)}
+                    className="rounded text-primary focus:ring-primary"
+                />
+                <label htmlFor="aes" className="text-sm text-gray-700 dark:text-gray-300">Use AES-256 Encryption (Recommended)</label>
+            </div>
         </div>
     );
-
-    const renderRedactTool = () => {
-        // Scan document for metadata when file is uploaded
-        const scanForMetadata = async () => {
-            if (uploadedFiles.length === 0) return;
-            setIsScanning(true);
-            try {
-                const metadata = await getMetadata(uploadedFiles[0].file);
-                setDetectedMetadata(metadata);
-            } catch (err) {
-                console.error('Failed to scan metadata:', err);
-            } finally {
-                setIsScanning(false);
-            }
-        };
-
-        return (
-            <div className="space-y-6">
-                {/* Mode Toggle */}
-                <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                    <button
-                        onClick={() => { setRedactMode('sanitize'); setRedactionMarks([]); }}
-                        className={`flex-1 py-2 px-4 text-sm font-medium rounded-md flex items-center justify-center gap-2 transition-all ${redactMode === 'sanitize'
-                            ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
-                            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                            }`}
-                    >
-                        🧹 Sanitize Metadata
-                    </button>
-                    <button
-                        onClick={() => setRedactMode('redact')}
-                        className={`flex-1 py-2 px-4 text-sm font-medium rounded-md flex items-center justify-center gap-2 transition-all ${redactMode === 'redact'
-                            ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
-                            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                            }`}
-                    >
-                        ⬛ Redact Text
-                    </button>
-                </div>
-
-                {/* Sanitize Mode */}
-                {redactMode === 'sanitize' && (
-                    <div className="space-y-4">
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Remove hidden metadata like Author, Creator, and editing history that can leak private information.
-                        </p>
-
-                        {uploadedFiles.length > 0 && (
-                            <>
-                                <button
-                                    onClick={scanForMetadata}
-                                    disabled={isScanning}
-                                    className="w-full py-2 px-4 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md text-sm font-medium transition-colors"
-                                >
-                                    {isScanning ? 'Scanning...' : '🔍 Scan Document for Metadata'}
-                                </button>
-
-                                {detectedMetadata && (
-                                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-md space-y-2">
-                                        <h4 className="font-bold text-sm text-amber-800 dark:text-amber-300">Detected Metadata:</h4>
-                                        <div className="text-xs space-y-1 text-amber-700 dark:text-amber-400">
-                                            {detectedMetadata.author && <p>✓ Author: {detectedMetadata.author}</p>}
-                                            {detectedMetadata.creator && <p>✓ Creator: {detectedMetadata.creator}</p>}
-                                            {detectedMetadata.producer && <p>✓ Producer: {detectedMetadata.producer}</p>}
-                                            {detectedMetadata.title && <p>✓ Title: {detectedMetadata.title}</p>}
-                                            {detectedMetadata.subject && <p>✓ Subject: {detectedMetadata.subject}</p>}
-                                            {detectedMetadata.keywords && detectedMetadata.keywords.length > 0 && (
-                                                <p>✓ Keywords: {detectedMetadata.keywords.join(', ')}</p>
-                                            )}
-                                            {!detectedMetadata.author && !detectedMetadata.creator && !detectedMetadata.producer && !detectedMetadata.title && (
-                                                <p className="text-green-600 dark:text-green-400">No sensitive metadata found!</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        )}
-
-                        <div className="p-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm rounded-md flex items-center gap-2">
-                            <span className="text-lg">⚡</span>
-                            <span><strong>Instant & Private:</strong> Processed locally in your browser.</span>
-                        </div>
-                    </div>
-                )}
-
-                {/* Redact Mode */}
-                {redactMode === 'redact' && (
-                    <div className="space-y-4">
-                        {uploadedFiles.length === 0 ? (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-                                Upload a PDF to start marking areas for redaction.
-                            </p>
-                        ) : (
-                            <>
-                                <div className="h-[500px] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                                    <RedactEditor
-                                        file={uploadedFiles[0].file}
-                                        redactions={redactionMarks}
-                                        onRedactionsChange={setRedactionMarks}
-                                    />
-                                </div>
-
-                                {redactionMarks.length > 0 && (
-                                    <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-md">
-                                        <span className="text-sm text-red-700 dark:text-red-300">
-                                            <strong>{redactionMarks.length}</strong> area{redactionMarks.length !== 1 ? 's' : ''} marked for redaction
-                                        </span>
-                                        <button
-                                            onClick={() => setRedactionMarks([])}
-                                            className="text-xs font-medium text-red-600 dark:text-red-400 hover:underline"
-                                        >
-                                            Clear All
-                                        </button>
-                                    </div>
-                                )}
-
-                                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-sm rounded-md">
-                                    <strong>⚠️ Security Notice:</strong> Redacted areas are permanently flattened. Text underneath cannot be recovered or copied.
-                                </div>
-                            </>
-                        )}
-                    </div>
-                )}
-            </div>
-        );
-    };
 
     const renderPdfOcr = () => (
         <div className="space-y-6">
@@ -1190,6 +991,34 @@ const ToolDetail: React.FC = () => {
             </div>
         </div>
     );
+
+    // PDF Sign Handler - now just updates UI state (download happens client-side in SignatureEditor)
+    const handleSignPdf = useCallback(async (_signatureData: { signatures: SignatureData[] }) => {
+        // SignatureEditor handles the actual signing and download client-side
+        // This callback just updates the UI state
+        setSuccess('PDF signed successfully!');
+    }, []);
+
+    const renderPdfSign = () => {
+        if (uploadedFiles.length === 0) {
+            return (
+                <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Upload a PDF document to start signing.
+                    </p>
+                </div>
+            );
+        }
+
+        return (
+            <SignatureEditor
+                file={uploadedFiles[0].file}
+                onSign={handleSignPdf}
+                isProcessing={isProcessing}
+            />
+        );
+    };
+
 
     const renderPdfCompress = () => (
         <div className="space-y-6">
@@ -1935,7 +1764,6 @@ const ToolDetail: React.FC = () => {
         // PDF Security
         if (id === 'pdf-password') return renderPdfSecurity();
         if (id === 'pdf-watermark') return renderPdfWatermark();
-        if (id === 'pdf-redact') return renderRedactTool();
         if (id === 'pdf-sign') return renderPdfSign();
 
         // PDF Advanced
@@ -2010,8 +1838,65 @@ const ToolDetail: React.FC = () => {
         return '*';
     })();
 
+    // PDF Sign uses full-width layout like Stirling PDF
+    const isFullWidthTool = id === 'pdf-sign';
+
+    // Special full-width layout for pdf-sign
+    if (isFullWidthTool && uploadedFiles.length > 0) {
+        return (
+            <div className="h-[calc(100vh-120px)] flex flex-col">
+                {/* Header */}
+                <div className="flex items-center gap-4 mb-4">
+                    <button
+                        onClick={() => navigate('/tools')}
+                        className="flex items-center space-x-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        <span className="font-bold text-sm">Back to Toolbox</span>
+                    </button>
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 dark:from-primary/30 dark:to-primary/20 flex items-center justify-center text-primary">
+                            <tool.icon className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-lg font-bold text-gray-900 dark:text-white">{tool.title}</h1>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                    {tool.badge}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex-1 min-h-0">
+                    <SignatureEditor
+                        file={uploadedFiles[0].file}
+                        onSign={handleSignPdf}
+                        isProcessing={isProcessing}
+                        onClose={() => navigate('/tools')}
+                    />
+                </div>
+
+                {/* Status messages */}
+                {error && (
+                    <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg flex items-center gap-2 text-red-700 dark:text-red-300">
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="text-sm">{error}</span>
+                    </div>
+                )}
+                {success && (
+                    <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg flex items-center gap-2 text-green-700 dark:text-green-300">
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="text-sm">{success}</span>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
     return (
-        <div className="max-w-3xl mx-auto">
+        <div className={isFullWidthTool ? "" : "max-w-3xl mx-auto"}>
             <button
                 onClick={() => navigate('/tools')}
                 className="flex items-center space-x-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white mb-6 transition-colors"

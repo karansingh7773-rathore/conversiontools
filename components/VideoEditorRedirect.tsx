@@ -8,7 +8,7 @@ import React, { useEffect, useState } from 'react';
  */
 
 // Update this URL after deploying the video editor to Vercel
-const VIDEO_EDITOR_URL = import.meta.env.VITE_VIDEO_EDITOR_URL || 'http://localhost:3000';
+const VIDEO_EDITOR_URL = import.meta.env.VITE_VIDEO_EDITOR_URL || 'https://video-editor-eight-tau.vercel.app/';
 
 const VideoEditorRedirect: React.FC = () => {
     const [countdown, setCountdown] = useState(3);

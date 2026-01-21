@@ -157,17 +157,6 @@ export const TOOLS: Tool[] = [
         ctaText: 'Watermark',
         category: 'PDF Security'
     },
-    {
-        id: 'pdf-redact',
-        title: 'Redact & Sanitize',
-        description: 'Black out sensitive text or remove metadata and hidden layers.',
-        icon: Eraser,
-        color: 'text-green-500',
-        bgColor: 'bg-green-100 dark:bg-green-900/20',
-        badge: 'Privacy',
-        ctaText: 'Redact',
-        category: 'PDF Security'
-    },
 
     // --- 4. Advanced / AI Tools ---
     {
