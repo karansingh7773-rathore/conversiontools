@@ -7,7 +7,7 @@ import { COMMUNITIES } from '../constants';
 const Community: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const communityName = id ? `r/${id}` : 'r/StudentHub';
-    
+
     // Find community metadata or default
     const communityData = COMMUNITIES.find(c => c.name === communityName) || {
         color: 'text-primary',
@@ -20,7 +20,7 @@ const Community: React.FC = () => {
             <div className="relative mb-4">
                 {/* Cover Image */}
                 <div className="h-32 md:h-48 bg-gradient-to-r from-blue-600 to-purple-600 rounded-b-md md:rounded-md"></div>
-                
+
                 {/* Header Info */}
                 <div className="bg-white border border-border-light rounded-md -mt-4 mx-0 md:mx-4 p-4 relative shadow-sm">
                     <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -31,7 +31,7 @@ const Community: React.FC = () => {
                                     {id ? id.substring(0, 2).toUpperCase() : 'SH'}
                                 </div>
                             </div>
-                            
+
                             {/* Text Info */}
                             <div className="mb-1">
                                 <h1 className="text-2xl font-bold text-gray-900 leading-none mb-1">{communityName}</h1>
@@ -53,13 +53,12 @@ const Community: React.FC = () => {
                     {/* Navigation Tabs */}
                     <div className="flex items-center gap-1 mt-6 border-b border-border-light overflow-x-auto no-scrollbar">
                         {['Posts', 'Wiki', 'Rules', 'Collections'].map((tab, idx) => (
-                            <button 
+                            <button
                                 key={tab}
-                                className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${
-                                    idx === 0 
-                                    ? 'border-primary text-gray-900' 
+                                className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${idx === 0
+                                    ? 'border-primary text-gray-900'
                                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                                }`}
+                                    }`}
                             >
                                 {tab}
                             </button>
@@ -85,10 +84,10 @@ const Community: React.FC = () => {
                         <div className="text-sm text-gray-700 leading-relaxed mb-4">
                             Welcome to {communityName}! A place to discuss coursework, share notes, campus gossips, and connect with fellow students.
                         </div>
-                        
+
                         <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
                             <Calendar className="w-4 h-4" />
-                            <span>Created Sep 2023</span>
+                            <span>Created Sep 2026</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
                             <Shield className="w-4 h-4" />
@@ -96,7 +95,7 @@ const Community: React.FC = () => {
                         </div>
 
                         <div className="border-t border-border-light my-4"></div>
-                        
+
                         <div className="grid grid-cols-2 gap-4 mb-4">
                             <div>
                                 <div className="text-base font-bold text-gray-900">125k</div>
@@ -118,21 +117,21 @@ const Community: React.FC = () => {
 
                     {/* Rules Widget */}
                     <div className="bg-white rounded-md border border-border-light p-4 shadow-sm">
-                         <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">{communityName} Rules</h2>
-                         <div className="space-y-3">
-                             {[
-                                 "Be respectful to others",
-                                 "No academic dishonesty",
-                                 "No spam or self-promotion",
-                                 "Keep discussions relevant",
-                                 "Protect student privacy"
-                             ].map((rule, i) => (
-                                 <div key={i} className="flex gap-2 items-start text-sm">
-                                     <span className="font-bold text-gray-900 min-w-[1.25rem]">{i + 1}.</span>
-                                     <span className="text-gray-700">{rule}</span>
-                                 </div>
-                             ))}
-                         </div>
+                        <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">{communityName} Rules</h2>
+                        <div className="space-y-3">
+                            {[
+                                "Be respectful to others",
+                                "No academic dishonesty",
+                                "No spam or self-promotion",
+                                "Keep discussions relevant",
+                                "Protect student privacy"
+                            ].map((rule, i) => (
+                                <div key={i} className="flex gap-2 items-start text-sm">
+                                    <span className="font-bold text-gray-900 min-w-[1.25rem]">{i + 1}.</span>
+                                    <span className="text-gray-700">{rule}</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Moderators */}

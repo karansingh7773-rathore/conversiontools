@@ -42,7 +42,7 @@ const SidebarRight: React.FC = () => {
                     <a href="#" className="hover:underline">DMCA</a>
                     <a href="#" className="hover:underline">Contact Support</a>
                 </div>
-                <p className="mt-3">© 2023 CampusHub Inc. All rights reserved.</p>
+                <p className="mt-3">© 2026 CampusHub Inc. All rights reserved.</p>
             </div>
         </aside>
     );
