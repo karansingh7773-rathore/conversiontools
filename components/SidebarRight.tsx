@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calculator, FileText } from 'lucide-react';
+import { Video, FileText } from 'lucide-react';
 
 const SidebarRight: React.FC = () => {
     return (
@@ -10,11 +10,11 @@ const SidebarRight: React.FC = () => {
                 <div className="space-y-4">
                     <div className="flex items-start space-x-3">
                         <div className="h-8 w-8 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
-                            <Calculator className="w-4 h-4 text-green-600" />
+                            <Video className="w-4 h-4 text-blue-600" />
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-gray-900 dark:text-gray-200 leading-tight hover:underline cursor-pointer">GPA Calculator updated</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Added support for 5.0 scale</p>
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-200 leading-tight hover:underline cursor-pointer">Video Compressor updated</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Added target size & advanced options</p>
                         </div>
                     </div>
                     <div className="flex items-start space-x-3">
@@ -22,8 +22,8 @@ const SidebarRight: React.FC = () => {
                             <FileText className="w-4 h-4 text-red-600" />
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-gray-900 dark:text-gray-200 leading-tight hover:underline cursor-pointer">PDF Engine improved</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">2x faster conversion speed</p>
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-200 leading-tight hover:underline cursor-pointer">PDF Compressor updated</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Added target file size support</p>
                         </div>
                     </div>
                 </div>
