@@ -46,8 +46,8 @@ const Toolbox: React.FC = () => {
         'Video Tools'
     ];
 
-    const filteredTools = selectedCategory === 'All Tools' 
-        ? TOOLS 
+    const filteredTools = selectedCategory === 'All Tools'
+        ? TOOLS
         : TOOLS.filter(tool => tool.category === selectedCategory);
 
     return (
@@ -62,9 +62,14 @@ const Toolbox: React.FC = () => {
                         </p>
                     </div>
                     <div className="flex gap-3 shrink-0">
-                        <button className="px-5 py-2 rounded-full border border-primary text-primary font-bold text-sm hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">
+                        <a
+                            href="https://registry.scalar.com/@stirlingpdf/apis/stirling-pdf-processing-api/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-5 py-2 rounded-full border border-primary text-primary font-bold text-sm hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors inline-block"
+                        >
                             API Docs
-                        </button>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -72,14 +77,13 @@ const Toolbox: React.FC = () => {
             {/* Filters */}
             <div className="flex overflow-x-auto gap-3 pb-4 mb-2 no-scrollbar">
                 {categories.map((filter) => (
-                    <button 
+                    <button
                         key={filter}
                         onClick={() => handleCategoryClick(filter)}
-                        className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${
-                            selectedCategory === filter
-                            ? 'bg-primary text-white shadow-md'
-                            : 'bg-white dark:bg-card-dark border border-transparent hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-                        }`}
+                        className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${selectedCategory === filter
+                                ? 'bg-primary text-white shadow-md'
+                                : 'bg-white dark:bg-card-dark border border-transparent hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                            }`}
                     >
                         {filter}
                     </button>
@@ -94,7 +98,7 @@ const Toolbox: React.FC = () => {
                     </div>
                 ))}
             </div>
-            
+
             {/* Empty State */}
             {filteredTools.length === 0 && (
                 <div className="text-center py-10 text-gray-500 dark:text-gray-400">

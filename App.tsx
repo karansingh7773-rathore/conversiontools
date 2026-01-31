@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import SidebarLeft from './components/SidebarLeft';
 import SidebarRight from './components/SidebarRight';
 import Toolbox from './components/Toolbox';
 import ToolDetail from './components/ToolDetail';
@@ -42,7 +41,6 @@ const App: React.FC = () => {
                 />
 
                 <div className="flex max-w-[1600px] mx-auto pt-4 justify-center">
-                    <SidebarLeft />
 
                     <main className="flex-1 px-0 md:px-4 lg:px-6 pb-10 min-w-0">
                         <Routes>

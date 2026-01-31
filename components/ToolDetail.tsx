@@ -68,7 +68,9 @@ const ToolDetail: React.FC = () => {
     const [ocrLanguage, setOcrLanguage] = useState('eng');
     const [ocrDeskew, setOcrDeskew] = useState(true);
     const [ocrClean, setOcrClean] = useState(false);
+
     const [compressionQuality, setCompressionQuality] = useState<'low' | 'medium' | 'high'>('medium');
+    const [pdfTargetSizeMB, setPdfTargetSizeMB] = useState<string>('');
 
     // Metadata state
     const [metaTitle, setMetaTitle] = useState('');
@@ -282,7 +284,7 @@ const ToolDetail: React.FC = () => {
                     if (files.length === 0) throw new Error('Please upload a PDF file');
                     setProcessingMessage('Splitting PDF... (processing locally)');
                     let splitFiles;
-                    if (splitMode === 'every') {
+                    if (splitMode === 'groups') {
                         splitFiles = await pdfClient.splitPdf(files[0], {
                             mode: 'every',
                             everyN: splitGroupSize ? parseInt(splitGroupSize) : 1
@@ -379,7 +381,11 @@ const ToolDetail: React.FC = () => {
 
                 case 'pdf-compress':
                     if (files.length === 0) throw new Error('Please upload a PDF file');
-                    result = await api.compressPDF(files[0], compressionQuality);
+                    result = await api.compressPDF(
+                        files[0],
+                        compressionQuality,
+                        pdfTargetSizeMB ? parseFloat(pdfTargetSizeMB) : undefined
+                    );
                     break;
 
                 case 'pdf-repair':
@@ -1032,8 +1038,11 @@ const ToolDetail: React.FC = () => {
                     ] as const).map((opt) => (
                         <button
                             key={opt.val}
-                            onClick={() => setCompressionQuality(opt.val)}
-                            className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${compressionQuality === opt.val
+                            onClick={() => {
+                                setCompressionQuality(opt.val);
+                                setPdfTargetSizeMB(''); // Clear target size when preset is selected
+                            }}
+                            className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${compressionQuality === opt.val && !pdfTargetSizeMB
                                 ? 'border-primary bg-red-50 dark:bg-red-900/20 text-primary'
                                 : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
                                 }`}
@@ -1043,6 +1052,36 @@ const ToolDetail: React.FC = () => {
                         </button>
                     ))}
                 </div>
+            </div>
+
+            <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white dark:bg-card-dark text-gray-500">OR</span>
+                </div>
+            </div>
+
+            <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Target File Size (MB)</label>
+                <input
+                    type="number"
+                    min="1"
+                    value={pdfTargetSizeMB}
+                    onChange={(e) => {
+                        setPdfTargetSizeMB(e.target.value);
+                        // If user types here, we might visually deselect the presets if strictly exclusive
+                    }}
+                    placeholder="e.g. 5"
+                    className={`w-full bg-gray-50 dark:bg-gray-800 border rounded-md px-3 py-2 ${pdfTargetSizeMB
+                        ? 'border-primary ring-1 ring-primary'
+                        : 'border-gray-200 dark:border-gray-700'
+                        }`}
+                />
+                <p className="text-xs text-gray-500">
+                    Try to compress below this size. Might reduce quality significantly.
+                </p>
             </div>
         </div>
     );
